@@ -1,0 +1,6 @@
+{
+  "name": "CIMENCAM HSE",
+  "description": "Application HSE Mobile CIMENCAM - Gestion de la Sécurité, Santé et Environnement du Groupe Holcim",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
