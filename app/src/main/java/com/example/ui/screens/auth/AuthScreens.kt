@@ -51,21 +51,28 @@ fun LoginScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF132D68),
-                        Color(0xFF0B1736),
-                        Color(0xFF080F24)
+            .background(HSEDarkBg)
+    ) {
+        // Top Brand Banner Background
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(260.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            HSEBlueDark,
+                            HSEBluePrimary
+                        )
                     )
                 )
-            )
-    ) {
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
+                .padding(bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -73,18 +80,18 @@ fun LoginScreen(
             // Top Brand Header (CIMFIG | CIMENCAM | HOLCIM SPIRIT)
             BrandHeader()
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // App Title
             Text(
-                text = "Application Mobile",
+                text = "Application Mobile HSE",
                 color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Subtitle Pills: Sécurité, Santé, Environnement
             Row(
@@ -96,16 +103,17 @@ fun LoginScreen(
                 HseBadgePill(text = "Environnement")
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
-            // Main Auth Card
+            // Main Auth Card - 100% Solid White for maximum clarity & contrast
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 18.dp),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = HSECardBg.copy(alpha = 0.95f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.5.dp, HSECardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -114,17 +122,18 @@ fun LoginScreen(
                 ) {
                     Text(
                         text = if (isRegisterMode) "Inscription" else "Connexion",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
+                        color = HSETextPrimary,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = if (isRegisterMode) "Créez votre accès sécurisé" else "Accédez à votre espace sécurisé",
+                        text = if (isRegisterMode) "Créez votre accès sécurisé CIMENCAM" else "Accédez à votre espace sécurisé HSE",
                         color = HSETextSecondary,
-                        fontSize = 13.sp
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -132,59 +141,92 @@ fun LoginScreen(
                     // Error text if any
                     if (authState.authError != null) {
                         Surface(
-                            color = HSERedUrgent.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                            color = HSERedUrgent.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, HSERedUrgent),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
                         ) {
-                            Text(
-                                text = authState.authError ?: "",
-                                color = HSERedUrgent,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(10.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = HSERedUrgent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = authState.authError ?: "",
+                                    color = HSERedDark,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
 
                     // Success / Pending Approval text if any
                     if (authState.authSuccess != null) {
                         Surface(
-                            color = HSEGreenSafe.copy(alpha = 0.15f),
-                            border = BorderStroke(1.dp, HSEGreenSafe.copy(alpha = 0.4f)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                            color = HSEEnvBg,
+                            border = BorderStroke(1.dp, HSEGreenSafe),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(10.dp),
+                                modifier = Modifier.padding(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = HSEGreenSafe, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = HSEGreenSafe, modifier = Modifier.size(20.dp))
                                 Text(
                                     text = authState.authSuccess ?: "",
-                                    color = HSEGreenSafe,
-                                    fontSize = 12.sp
+                                    color = HSEBlueDark,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
                     }
 
                     if (isRegisterMode) {
-                        // Name Field
+                        // Name Field Label + Input
+                        Text(
+                            text = "Nom complet",
+                            color = HSETextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
                         OutlinedTextField(
                             value = registerName,
                             onValueChange = { registerName = it },
-                            placeholder = { Text("Nom complet (ex: Jean Dupont)", color = HSETextMuted, fontSize = 14.sp) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Person, contentDescription = null, tint = HSETextSecondary)
+                            placeholder = {
+                                Text(
+                                    "Ex: Jean Dupont",
+                                    color = HSETextSecondary.copy(alpha = 0.75f),
+                                    fontSize = 14.sp
+                                )
                             },
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = HSEBluePrimary)
+                            },
+                            textStyle = LocalTextStyle.current.copy(
+                                color = HSETextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
                             modifier = Modifier.fillMaxWidth().testTag("register_name_input"),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = HSEFieldBg,
+                                focusedContainerColor = Color.White,
                                 unfocusedContainerColor = HSEFieldBg,
-                                focusedBorderColor = HSEBlueLight,
-                                unfocusedBorderColor = HSECardBorder,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedBorderColor = HSEBluePrimary,
+                                unfocusedBorderColor = Color(0xFFB0BEC5),
+                                focusedTextColor = HSETextPrimary,
+                                unfocusedTextColor = HSETextPrimary,
+                                cursorColor = HSEBluePrimary
                             ),
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true
@@ -192,22 +234,41 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Phone Field
+                        // Phone Field Label + Input
+                        Text(
+                            text = "Numéro de téléphone",
+                            color = HSETextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
                         OutlinedTextField(
                             value = registerPhone,
                             onValueChange = { registerPhone = it },
-                            placeholder = { Text("Numéro de téléphone (ex: +237 690 12 34 56)", color = HSETextMuted, fontSize = 14.sp) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Phone, contentDescription = null, tint = HSETextSecondary)
+                            placeholder = {
+                                Text(
+                                    "Ex: +237 690 12 34 56",
+                                    color = HSETextSecondary.copy(alpha = 0.75f),
+                                    fontSize = 14.sp
+                                )
                             },
+                            leadingIcon = {
+                                Icon(Icons.Default.Phone, contentDescription = null, tint = HSEBluePrimary)
+                            },
+                            textStyle = LocalTextStyle.current.copy(
+                                color = HSETextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
                             modifier = Modifier.fillMaxWidth().testTag("register_phone_input"),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = HSEFieldBg,
+                                focusedContainerColor = Color.White,
                                 unfocusedContainerColor = HSEFieldBg,
-                                focusedBorderColor = HSEBlueLight,
-                                unfocusedBorderColor = HSECardBorder,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedBorderColor = HSEBluePrimary,
+                                unfocusedBorderColor = Color(0xFFB0BEC5),
+                                focusedTextColor = HSETextPrimary,
+                                unfocusedTextColor = HSETextPrimary,
+                                cursorColor = HSEBluePrimary
                             ),
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true,
@@ -225,14 +286,14 @@ fun LoginScreen(
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
                                     contentDescription = null,
-                                    tint = HSEBlueLight,
-                                    modifier = Modifier.size(16.dp)
+                                    tint = HSEBluePrimary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Text(
                                     text = "Site d'affectation :",
-                                    color = Color.White,
+                                    color = HSETextPrimary,
                                     fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
@@ -256,20 +317,20 @@ fun LoginScreen(
                                             .testTag("site_option_${siteCode.lowercase()}"),
                                         shape = RoundedCornerShape(10.dp),
                                         color = if (isSelected) HSEBluePrimary else HSEFieldBg,
-                                        border = if (isSelected) BorderStroke(1.5.dp, HSEBlueLight) else BorderStroke(1.dp, HSECardBorder)
+                                        border = if (isSelected) BorderStroke(2.dp, HSEBlueDark) else BorderStroke(1.dp, Color(0xFFB0BEC5))
                                     ) {
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(vertical = 7.dp, horizontal = 4.dp),
+                                                .padding(vertical = 10.dp, horizontal = 4.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.Center
                                         ) {
                                             Text(
-                                                text = siteCode,
-                                                color = if (isSelected) Color.White else HSETextSecondary,
-                                                fontSize = 11.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                text = if (isSelected) "✔ $siteCode" else siteCode,
+                                                color = if (isSelected) Color.White else HSETextPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center
                                             )
                                         }
@@ -278,25 +339,44 @@ fun LoginScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                     }
 
-                    // Email Field
+                    // Email Field Label + Input
+                    Text(
+                        text = "Adresse e-mail professionnelle",
+                        color = HSETextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
                     OutlinedTextField(
                         value = authState.emailInput,
                         onValueChange = { viewModel.onEmailChange(it) },
-                        placeholder = { Text("Adresse e-mail professionnelle", color = HSETextMuted, fontSize = 14.sp) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Email, contentDescription = null, tint = HSETextSecondary)
+                        placeholder = {
+                            Text(
+                                "prenom.nom@cimencam.cm",
+                                color = HSETextSecondary.copy(alpha = 0.75f),
+                                fontSize = 14.sp
+                            )
                         },
+                        leadingIcon = {
+                            Icon(Icons.Default.Email, contentDescription = null, tint = HSEBluePrimary)
+                        },
+                        textStyle = LocalTextStyle.current.copy(
+                            color = HSETextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
                         modifier = Modifier.fillMaxWidth().testTag("email_input"),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = HSEFieldBg,
+                            focusedContainerColor = Color.White,
                             unfocusedContainerColor = HSEFieldBg,
-                            focusedBorderColor = HSEBlueLight,
-                            unfocusedBorderColor = HSECardBorder,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = HSEBluePrimary,
+                            unfocusedBorderColor = Color(0xFFB0BEC5),
+                            focusedTextColor = HSETextPrimary,
+                            unfocusedTextColor = HSETextPrimary,
+                            cursorColor = HSEBluePrimary
                         ),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
@@ -305,13 +385,26 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Password Field
+                    // Password Field Label + Input
+                    Text(
+                        text = "Mot de passe",
+                        color = HSETextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
                     OutlinedTextField(
                         value = authState.passwordInput,
                         onValueChange = { viewModel.onPasswordChange(it) },
-                        placeholder = { Text("Mot de passe", color = HSETextMuted, fontSize = 14.sp) },
+                        placeholder = {
+                            Text(
+                                "Votre mot de passe",
+                                color = HSETextSecondary.copy(alpha = 0.75f),
+                                fontSize = 14.sp
+                            )
+                        },
                         leadingIcon = {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = HSETextSecondary)
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = HSEBluePrimary)
                         },
                         trailingIcon = {
                             IconButton(
@@ -320,20 +413,26 @@ fun LoginScreen(
                             ) {
                                 Icon(
                                     imageVector = if (authState.isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = "Toggle password visibility",
-                                    tint = HSETextSecondary
+                                    contentDescription = "Afficher ou masquer le mot de passe",
+                                    tint = HSETextPrimary
                                 )
                             }
                         },
+                        textStyle = LocalTextStyle.current.copy(
+                            color = HSETextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
                         visualTransformation = if (authState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth().testTag("password_input"),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = HSEFieldBg,
+                            focusedContainerColor = Color.White,
                             unfocusedContainerColor = HSEFieldBg,
-                            focusedBorderColor = HSEBlueLight,
-                            unfocusedBorderColor = HSECardBorder,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = HSEBluePrimary,
+                            unfocusedBorderColor = Color(0xFFB0BEC5),
+                            focusedTextColor = HSETextPrimary,
+                            unfocusedTextColor = HSETextPrimary,
+                            cursorColor = HSEBluePrimary
                         ),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
@@ -342,7 +441,7 @@ fun LoginScreen(
 
                     if (!isRegisterMode) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        // Mot de passe oublié
+                        // Compte ou mot de passe oublié
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -350,10 +449,10 @@ fun LoginScreen(
                             contentAlignment = Alignment.CenterEnd
                         ) {
                             Text(
-                                text = "Mot de passe oublié ?",
+                                text = "Compte ou mot de passe oublié ?",
                                 color = HSEBlueLight,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 modifier = Modifier
                                     .clickable { showForgotPasswordDialog = true }
                                     .testTag("forgot_password_button")
@@ -361,7 +460,7 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Submit Button "Se connecter ->" / "S'inscrire ->"
                     Button(
@@ -372,16 +471,15 @@ fun LoginScreen(
                                     site = registerSite,
                                     phone = registerPhone
                                 )
-                                viewModel.setSite(registerSite)
                             } else {
                                 viewModel.login()
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
+                            .height(50.dp)
                             .testTag("submit_auth_button"),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary),
                         enabled = !authState.isSubmitting
                     ) {
@@ -399,7 +497,7 @@ fun LoginScreen(
                                 Text(
                                     text = if (isRegisterMode) "S'inscrire" else "Se connecter",
                                     color = Color.White,
-                                    fontSize = 14.sp,
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -407,7 +505,7 @@ fun LoginScreen(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -430,9 +528,9 @@ fun LoginScreen(
                         )
                         Text(
                             text = "  OU  ",
-                            color = HSETextMuted,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
+                            color = HSETextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
                         HorizontalDivider(
                             modifier = Modifier.weight(1f),
@@ -445,18 +543,24 @@ fun LoginScreen(
                     // Google Sign-In button with Firebase Auth
                     OutlinedButton(
                         onClick = {
-                            viewModel.loginWithGoogle(context)
+                            viewModel.loginWithGoogle(
+                                context = context,
+                                isRegisterMode = isRegisterMode,
+                                registerNameHint = registerName,
+                                registerSiteHint = registerSite,
+                                registerPhoneHint = registerPhone
+                            )
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(48.dp)
                             .testTag("google_signin_button"),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = Color.White,
-                            contentColor = Color(0xFF1F2937)
+                            contentColor = HSETextPrimary
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                        border = BorderStroke(1.5.dp, Color(0xFFB0BEC5)),
                         enabled = !authState.isSubmitting
                     ) {
                         Row(
@@ -464,7 +568,7 @@ fun LoginScreen(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Surface(
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(22.dp),
                                 shape = CircleShape,
                                 color = Color.White
                             ) {
@@ -480,14 +584,14 @@ fun LoginScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = if (isRegisterMode) "S'inscrire avec Google" else "Continuer avec Google",
-                                color = Color(0xFF1F2937),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
+                                color = HSETextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Firebase status badge
                     Row(
@@ -499,17 +603,18 @@ fun LoginScreen(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
                             tint = HSEGreenSafe,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = "Authentification sécurisée Firebase & Firestore",
-                            color = HSETextMuted,
-                            fontSize = 11.sp
+                            text = "Comptes synchronisés sur Firebase Auth & Firestore",
+                            color = HSETextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Switch between Login and Register
                     Row(
@@ -520,13 +625,14 @@ fun LoginScreen(
                         Text(
                             text = if (isRegisterMode) "Déjà un compte ? " else "Pas encore de compte ? ",
                             color = HSETextSecondary,
-                            fontSize = 13.sp
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                         Text(
                             text = if (isRegisterMode) "Se connecter" else "Créer un accès",
-                            color = HSEBlueLight,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
+                            color = HSEBluePrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier
                                 .clickable { isRegisterMode = !isRegisterMode }
                                 .testTag("switch_auth_mode")
@@ -535,68 +641,114 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Footer
             Text(
                 text = "Groupe Holcim - CIMENCAM 2026",
-                color = HSETextMuted,
+                color = HSETextSecondary,
                 fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
         }
 
-        // Forgot Password Dialog
+        // Forgot Account / Password Dialog (Firebase Auth + Admin Account Recovery)
         if (showForgotPasswordDialog) {
-            var resetEmail by remember { mutableStateOf(authState.emailInput) }
+            var resetIdentifier by remember { mutableStateOf(authState.emailInput) }
+            var resetNote by remember { mutableStateOf("") }
             var resetSent by remember { mutableStateOf(false) }
+            var resetSuccessMsg by remember { mutableStateOf("") }
             var resetError by remember { mutableStateOf<String?>(null) }
             var isSendingReset by remember { mutableStateOf(false) }
 
             AlertDialog(
                 onDismissRequest = { showForgotPasswordDialog = false },
-                containerColor = HSECardBg,
-                title = { Text("Réinitialisation mot de passe", color = Color.White, fontWeight = FontWeight.Bold) },
+                containerColor = Color.White,
+                title = {
+                    Text(
+                        "Récupération de compte ou mot de passe",
+                        color = HSETextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    )
+                },
                 text = {
                     Column {
                         if (!resetSent) {
                             Text(
-                                text = "Entrez votre email CIMENCAM pour recevoir le lien de réinitialisation sécurisé :",
+                                text = "Indiquez votre e-mail (ou votre nom / téléphone en cas d'oubli d'e-mail). Un lien Firebase Auth sera envoyé et l'administrateur HSE pourra gérer ou réinitialiser votre accès :",
                                 color = HSETextSecondary,
-                                fontSize = 13.sp
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             OutlinedTextField(
-                                value = resetEmail,
-                                onValueChange = { 
-                                    resetEmail = it 
+                                value = resetIdentifier,
+                                onValueChange = {
+                                    resetIdentifier = it
                                     resetError = null
                                 },
-                                placeholder = { Text("Email professionnel", color = HSETextMuted) },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = HSEFieldBg,
-                                    unfocusedContainerColor = HSEFieldBg,
-                                    focusedBorderColor = HSEBlueLight,
-                                    unfocusedBorderColor = HSECardBorder,
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                label = { Text("E-mail, Nom ou Téléphone", color = HSETextPrimary) },
+                                placeholder = { Text("Ex: nom@cimencam.cm ou +237...", color = HSETextSecondary.copy(alpha = 0.75f)) },
+                                textStyle = LocalTextStyle.current.copy(
+                                    color = HSETextPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = HSEFieldBg,
+                                    focusedBorderColor = HSEBluePrimary,
+                                    unfocusedBorderColor = Color(0xFFB0BEC5),
+                                    focusedTextColor = HSETextPrimary,
+                                    unfocusedTextColor = HSETextPrimary,
+                                    cursorColor = HSEBluePrimary
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = resetNote,
+                                onValueChange = { resetNote = it },
+                                label = { Text("Message pour l'administrateur (optionnel)", color = HSETextPrimary) },
+                                placeholder = { Text("Ex: Mot de passe oublié / E-mail oublié", color = HSETextSecondary.copy(alpha = 0.75f)) },
+                                textStyle = LocalTextStyle.current.copy(
+                                    color = HSETextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = HSEFieldBg,
+                                    focusedBorderColor = HSEBluePrimary,
+                                    unfocusedBorderColor = Color(0xFFB0BEC5),
+                                    focusedTextColor = HSETextPrimary,
+                                    unfocusedTextColor = HSETextPrimary,
+                                    cursorColor = HSEBluePrimary
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
                             )
                             if (resetError != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = resetError ?: "",
                                     color = HSERedUrgent,
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         } else {
                             Text(
-                                text = "Instructions envoyées avec succès à $resetEmail. Vérifiez votre boîte de réception.",
+                                text = resetSuccessMsg,
                                 color = HSEGreenSafe,
-                                fontSize = 14.sp
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 20.sp
                             )
                         }
                     }
@@ -608,9 +760,10 @@ fun LoginScreen(
                                 showForgotPasswordDialog = false
                             } else {
                                 isSendingReset = true
-                                viewModel.sendPasswordReset(resetEmail) { success, message ->
+                                viewModel.sendPasswordReset(resetIdentifier, resetNote) { success, message ->
                                     isSendingReset = false
                                     if (success) {
+                                        resetSuccessMsg = message
                                         resetSent = true
                                     } else {
                                         resetError = message
@@ -624,14 +777,14 @@ fun LoginScreen(
                         if (isSendingReset) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
-                            Text(if (resetSent) "Fermer" else "Envoyer le lien")
+                            Text(if (resetSent) "Fermer" else "Demander la récupération", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 },
                 dismissButton = {
                     if (!resetSent) {
                         TextButton(onClick = { showForgotPasswordDialog = false }) {
-                            Text("Annuler", color = HSETextSecondary)
+                            Text("Annuler", color = HSETextSecondary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

@@ -31,7 +31,10 @@ fun AdminUsersScreen(
     viewModel: HseViewModel,
     onBack: () -> Unit
 ) {
-    val users by viewModel.allUsers.collectAsState()
+    val rawUsers by viewModel.allUsers.collectAsState()
+    val users = remember(rawUsers) {
+        rawUsers.filterNot { com.example.data.db.AppDatabase.isDemoUserEmail(it.email) }
+    }
     val authState by viewModel.authState.collectAsState()
     val userState by viewModel.user.collectAsState()
     val activeUser = userState?.takeIf { it.email.isNotBlank() } ?: authState.currentUser
@@ -48,22 +51,28 @@ fun AdminUsersScreen(
     var selectedRoleFilter by remember { mutableStateOf("Tous") }
     var selectedSiteFilter by remember { mutableStateOf("Tous") }
     var userToDelete by remember { mutableStateOf<UserEntity?>(null) }
+    var userToManageAccount by remember { mutableStateOf<UserEntity?>(null) }
 
     val isAddEditOpen by viewModel.isAddEditUserOpen.collectAsState()
     val editingUser by viewModel.editingUser.collectAsState()
 
     val totalUsers = users.size
     val onlineCount = users.count { it.isOnline }
+    val recoveryCount = users.count { it.resetRequested }
     val adminCount = users.count { it.role.equals("Admin", ignoreCase = true) }
     val managerCount = users.count { it.role.equals("Manager", ignoreCase = true) }
     val collabCount = users.count { it.role.equals("Collaborateur", ignoreCase = true) || (!it.role.equals("Admin", ignoreCase = true) && !it.role.equals("Manager", ignoreCase = true)) }
 
     val filteredUsers = remember(users, searchQuery, selectedRoleFilter, selectedSiteFilter) {
         users.filter { u ->
-            val matchQuery = searchQuery.isBlank() || u.name.contains(searchQuery, ignoreCase = true) || u.email.contains(searchQuery, ignoreCase = true)
+            val matchQuery = searchQuery.isBlank() ||
+                u.name.contains(searchQuery, ignoreCase = true) ||
+                u.email.contains(searchQuery, ignoreCase = true) ||
+                u.phone.contains(searchQuery, ignoreCase = true)
             val matchRole = when (selectedRoleFilter) {
                 "Tous" -> true
                 "En ligne 🟢" -> u.isOnline
+                "Oubli / Récupération 🔑" -> u.resetRequested
                 "Admin", "Admins" -> u.role.equals("Admin", ignoreCase = true)
                 "Manager", "Managers" -> u.role.equals("Manager", ignoreCase = true)
                 "Collaborateur", "Collaborateurs" -> u.role.equals("Collaborateur", ignoreCase = true) || (!u.role.equals("Admin", ignoreCase = true) && !u.role.equals("Manager", ignoreCase = true))
@@ -230,11 +239,55 @@ fun AdminUsersScreen(
                 }
             }
 
+            // Alert banner when users have requested account / password recovery
+            if (recoveryCount > 0) {
+                Surface(
+                    color = Color(0xFF78350F).copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedRoleFilter = "Oubli / Récupération 🔑" }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Key,
+                                contentDescription = null,
+                                tint = Color(0xFFFBBF24),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "$recoveryCount demande(s) d'oubli de compte / mot de passe",
+                                    color = Color(0xFFFDE68A),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Cliquez sur 'Gérer Accès / MDP' sur le profil concerné pour réinitialiser et synchroniser sur Firebase Auth.",
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Search bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Rechercher par nom ou email...", color = Color(0xFF64748B), fontSize = 13.sp) },
+                placeholder = { Text("Rechercher par nom, e-mail ou téléphone...", color = Color(0xFF64748B), fontSize = 13.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -255,7 +308,7 @@ fun AdminUsersScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Tous", "En ligne 🟢", "Admin", "Manager", "Collaborateur", "En attente").forEach { r ->
+                listOf("Tous", "En ligne 🟢", "Oubli / Récupération 🔑", "Admin", "Manager", "Collaborateur").forEach { r ->
                     val isSel = selectedRoleFilter == r
                     FilterChip(
                         selected = isSel,
@@ -294,7 +347,7 @@ fun AdminUsersScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Ajouter un utilisateur",
+                    text = "Ajouter un utilisateur (Synchronisé Firebase Auth)",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
@@ -308,6 +361,9 @@ fun AdminUsersScreen(
                     onEdit = {
                         viewModel.editingUser.value = u
                         viewModel.isAddEditUserOpen.value = true
+                    },
+                    onManageAccount = {
+                        userToManageAccount = u
                     },
                     onToggleStatus = {
                         if (u.isProtectedAdmin) return@UserCardItem
@@ -333,10 +389,19 @@ fun AdminUsersScreen(
                         .padding(vertical = 32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Aucun utilisateur trouvé", color = Color(0xFF64748B), fontSize = 13.sp)
+                    Text("Aucun compte utilisateur enregistré trouvé", color = Color(0xFF64748B), fontSize = 13.sp)
                 }
             }
         }
+    }
+
+    // Admin Account & Password Management Dialog (Firebase Auth Sync)
+    userToManageAccount?.let { targetUser ->
+        AdminAccountRecoveryDialog(
+            user = targetUser,
+            viewModel = viewModel,
+            onDismiss = { userToManageAccount = null }
+        )
     }
 
     // Confirmation Dialog before Deleting User
@@ -427,6 +492,7 @@ fun UserStatCard(
 fun UserCardItem(
     user: UserEntity,
     onEdit: () -> Unit,
+    onManageAccount: () -> Unit,
     onToggleStatus: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -446,11 +512,55 @@ fun UserCardItem(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             1.dp,
-            if (isProtected) Color(0xFFF59E0B).copy(alpha = 0.8f) else Color(0xFF334155)
+            when {
+                user.resetRequested -> Color(0xFFF59E0B)
+                isProtected -> Color(0xFFF59E0B).copy(alpha = 0.8f)
+                else -> Color(0xFF334155)
+            }
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Password / Account Recovery Request Alert Banner
+            if (user.resetRequested) {
+                Surface(
+                    color = Color(0xFF78350F).copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = null,
+                            tint = Color(0xFFFBBF24),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = "DEMANDE DE RÉCUPÉRATION (OUBLI DE COMPTE / MOT DE PASSE)",
+                                color = Color(0xFFFDE68A),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            if (user.resetRequestNote.isNotBlank()) {
+                                Text(
+                                    text = user.resetRequestNote,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Protected Admin Banner
             if (isProtected) {
                 Surface(
@@ -528,6 +638,9 @@ fun UserCardItem(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(text = user.email, color = Color(0xFF94A3B8), fontSize = 12.sp)
+                    if (user.phone.isNotBlank()) {
+                        Text(text = "Tél : ${user.phone}", color = Color(0xFFCBD5E1), fontSize = 11.sp)
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(imageVector = Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(11.dp))
@@ -577,52 +690,57 @@ fun UserCardItem(
                             )
                         }
                     }
+
+                    // Firebase Auth synchronization badge
+                    Surface(
+                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VerifiedUser,
+                                contentDescription = null,
+                                tint = Color(0xFF38BDF8),
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Text(
+                                text = "Firebase Auth",
+                                color = Color(0xFF38BDF8),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action row
+            // Primary Action row: Manage Account / Password (Firebase Auth) + Edit + Toggle Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isProtected) {
-                    Surface(
-                        color = Color(0xFF334155).copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(34.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(13.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Compte Protégé", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = onToggleStatus,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (isActive) Color(0xFFFBBF24) else Color(0xFF10B981)
-                        ),
-                        border = BorderStroke(1.dp, if (isActive) Color(0xFFD97706).copy(alpha = 0.4f) else Color(0xFF047857).copy(alpha = 0.4f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(34.dp)
-                    ) {
-                        Text(
-                            text = if (isPending) "Valider" else if (isActive) "Désactiver" else "Activer",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                OutlinedButton(
+                    onClick = onManageAccount,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (user.resetRequested) Color(0xFFF59E0B).copy(alpha = 0.2f) else Color.Transparent,
+                        contentColor = Color(0xFFFBBF24)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .weight(1.3f)
+                        .height(34.dp)
+                        .testTag("manage_account_${user.email}")
+                ) {
+                    Icon(imageVector = Icons.Default.Key, contentDescription = null, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Gérer Accès / MDP", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
 
                 OutlinedButton(
@@ -638,14 +756,313 @@ fun UserCardItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Modifier", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
+            }
 
-                if (!isProtected && !user.role.equals("Admin", ignoreCase = true)) {
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(34.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Secondary Action row: Activate/Deactivate + Delete
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isProtected) {
+                    Surface(
+                        color = Color(0xFF334155).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Supprimer", tint = Color(0xFFF87171), modifier = Modifier.size(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Compte Administrateur Principal Protégé", color = Color(0xFFFBBF24), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
+                } else {
+                    OutlinedButton(
+                        onClick = onToggleStatus,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (isActive) Color(0xFFFBBF24) else Color(0xFF10B981)
+                        ),
+                        border = BorderStroke(1.dp, if (isActive) Color(0xFFD97706).copy(alpha = 0.4f) else Color(0xFF047857).copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
+                    ) {
+                        Text(
+                            text = if (isPending) "Valider le compte" else if (isActive) "Suspendre l'accès" else "Réactiver l'accès",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (!user.role.equals("Admin", ignoreCase = true)) {
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Supprimer", tint = Color(0xFFF87171), modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminAccountRecoveryDialog(
+    user: UserEntity,
+    viewModel: HseViewModel,
+    onDismiss: () -> Unit
+) {
+    var newPassword by remember { mutableStateOf(user.password) }
+    var showCurrentPassword by remember { mutableStateOf(false) }
+    var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    var isSuccessFeedback by remember { mutableStateOf(true) }
+    var isSyncing by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            color = Color(0xFF1E293B),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = null,
+                            tint = Color(0xFFFBBF24),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Gestion Compte & Firebase Auth",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Fermer", tint = Color(0xFF94A3B8))
+                    }
+                }
+
+                // Account Identity Summary Box (helps when user forgot their email or credentials)
+                Surface(
+                    color = Color(0xFF0F172A),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF334155)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "IDENTIFIANTS DU COMPTE UTILISATEUR",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = "Nom : ${user.name} (${user.role})",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "E-mail de connexion : ${user.email}",
+                            color = Color(0xFFFDE68A),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (user.phone.isNotBlank()) {
+                            Text(
+                                text = "Téléphone : ${user.phone}",
+                                color = Color(0xFFCBD5E1),
+                                fontSize = 12.sp
+                            )
+                        }
+                        Text(
+                            text = "Site : ${user.site} • ${user.department}",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Mot de passe actuel : ${
+                                    if (user.password.isBlank()) "Géré sur Firebase Auth"
+                                    else if (showCurrentPassword) user.password
+                                    else "••••••••"
+                                }",
+                                color = Color(0xFF10B981),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (user.password.isNotBlank()) {
+                                TextButton(onClick = { showCurrentPassword = !showCurrentPassword }) {
+                                    Text(
+                                        text = if (showCurrentPassword) "Masquer" else "Afficher",
+                                        color = Color(0xFF38BDF8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (user.resetRequested) {
+                    Surface(
+                        color = Color(0xFF78350F).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "⚠️ Cet utilisateur a signalé un oubli de compte ou de mot de passe :",
+                                color = Color(0xFFFDE68A),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (user.resetRequestNote.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "\"${user.resetRequestNote}\"",
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Define / Reset Password synchronized with Firebase Auth
+                Text(
+                    text = "Définir ou réinitialiser le mot de passe (min. 6 caractères)",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = {
+                        newPassword = it
+                        feedbackMessage = null
+                    },
+                    placeholder = { Text("Nouveau mot de passe sécurisé", color = Color(0xFF64748B), fontSize = 13.sp) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color(0xFF0F172A),
+                        unfocusedContainerColor = Color(0xFF0F172A),
+                        focusedBorderColor = Color(0xFFF59E0B),
+                        unfocusedBorderColor = Color(0xFF334155)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                if (feedbackMessage != null) {
+                    Surface(
+                        color = if (isSuccessFeedback) Color(0xFF064E3B) else Color(0xFF7F1D1D),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = feedbackMessage ?: "",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                // Button 1: Update & Synchronize Password in Firebase Auth + Firestore
+                Button(
+                    onClick = {
+                        isSyncing = true
+                        viewModel.adminResetUserPassword(user, newPassword) { ok, msg ->
+                            isSyncing = false
+                            isSuccessFeedback = ok
+                            feedbackMessage = msg
+                        }
+                    },
+                    enabled = !isSyncing,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.SyncLock, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Mettre à jour & Synchroniser Firebase Auth",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Button 2: Send official Firebase Auth Password Reset Email
+                OutlinedButton(
+                    onClick = {
+                        isSyncing = true
+                        viewModel.adminSendFirebaseResetEmail(user.email) { ok, msg ->
+                            isSyncing = false
+                            isSuccessFeedback = ok
+                            feedbackMessage = msg
+                        }
+                    },
+                    enabled = !isSyncing,
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Envoyer un lien e-mail Firebase Auth",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
@@ -662,6 +1079,8 @@ fun AddEditUserDialog(
     val isProtected = user?.isProtectedAdmin == true
     var name by remember { mutableStateOf(user?.name ?: "") }
     var email by remember { mutableStateOf(user?.email ?: "") }
+    var phone by remember { mutableStateOf(user?.phone ?: "") }
+    var password by remember { mutableStateOf(user?.password?.ifBlank { "Cimencam2026" } ?: "Cimencam2026") }
     var role by remember { mutableStateOf(if (isProtected) "Admin" else user?.role ?: "Collaborateur") }
     var site by remember { mutableStateOf(user?.site ?: "Bonabéri") }
     var department by remember { mutableStateOf(user?.department ?: "Sécurité Industrielle") }
@@ -743,7 +1162,7 @@ fun AddEditUserDialog(
                 )
 
                 // Email
-                Text("Email", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("Email de connexion", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -758,6 +1177,42 @@ fun AddEditUserDialog(
                         unfocusedBorderColor = Color(0xFF334155),
                         disabledContainerColor = Color(0xFF1E293B).copy(alpha = 0.5f),
                         disabledTextColor = Color(0xFF94A3B8)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Téléphone
+                Text("Téléphone", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    placeholder = { Text("+237 6XX XX XX XX", color = Color(0xFF64748B), fontSize = 13.sp) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color(0xFF0F172A),
+                        unfocusedContainerColor = Color(0xFF0F172A),
+                        focusedBorderColor = Color(0xFFDC2626),
+                        unfocusedBorderColor = Color(0xFF334155)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Mot de passe synchronisé Firebase Auth
+                Text("Mot de passe (synchronisé Firebase Auth)", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = { Text("Minimum 6 caractères", color = Color(0xFF64748B), fontSize = 13.sp) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color(0xFF0F172A),
+                        unfocusedContainerColor = Color(0xFF0F172A),
+                        focusedBorderColor = Color(0xFFDC2626),
+                        unfocusedBorderColor = Color(0xFF334155)
                     ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -923,7 +1378,7 @@ fun AddEditUserDialog(
                             onDismissRequest = { expandedStatus = false },
                             modifier = Modifier.background(Color(0xFF1E293B))
                         ) {
-                            listOf("Actif", "Inactif", "En attente").forEach { st ->
+                            listOf("Actif", "Inactif").forEach { st ->
                                 DropdownMenuItem(
                                     text = { Text(st, color = Color.White) },
                                     onClick = {
@@ -949,14 +1404,17 @@ fun AddEditUserDialog(
                                 .joinToString("")
                                 .ifEmpty { "US" }
 
-                            val updatedUser = UserEntity(
-                                email = email.trim(),
+                            val updatedUser = (user ?: UserEntity(email = email.trim())).copy(
+                                email = email.trim().lowercase(),
                                 name = name.trim(),
+                                phone = phone.trim(),
+                                password = password.trim().ifBlank { "Cimencam2026" },
                                 role = if (isProtected) "Admin" else role,
                                 site = site,
                                 department = department.trim(),
                                 avatarInitials = initials,
-                                status = if (isProtected) "Actif" else status
+                                status = if (isProtected) "Actif" else status,
+                                authSynced = true
                             )
                             onSave(updatedUser)
                         }
@@ -970,7 +1428,7 @@ fun AddEditUserDialog(
                     Icon(imageVector = Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isEdit) "Enregistrer les modifications" else "Créer l'utilisateur",
+                        text = if (isEdit) "Enregistrer & Synchroniser Firebase" else "Créer & Synchroniser Firebase",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp

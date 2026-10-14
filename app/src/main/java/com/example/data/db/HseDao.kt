@@ -37,8 +37,17 @@ interface HseDao {
     @Query("UPDATE users SET isOnline = :isOnline, lastActiveMillis = :lastActiveMillis WHERE email = :email")
     suspend fun updateUserOnlineStatus(email: String, isOnline: Boolean, lastActiveMillis: Long)
 
+    @Query("UPDATE users SET password = :password, authSynced = :authSynced, resetRequested = 0, resetRequestNote = '' WHERE email = :email")
+    suspend fun updateUserPassword(email: String, password: String, authSynced: Boolean = true)
+
+    @Query("UPDATE users SET resetRequested = :requested, resetRequestNote = :note WHERE email = :email")
+    suspend fun updateUserResetRequest(email: String, requested: Boolean, note: String)
+
     @Query("DELETE FROM users WHERE email = :email")
     suspend fun deleteUser(email: String)
+
+    @Query("DELETE FROM users WHERE email IN (:emails)")
+    suspend fun deleteUsersByEmails(emails: List<String>)
 
     @Query("DELETE FROM users")
     suspend fun clearUsers()
@@ -81,6 +90,9 @@ interface HseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAttestation(attestation: DocumentAttestationEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttestations(attestations: List<DocumentAttestationEntity>)
+
     @Query("DELETE FROM document_attestations WHERE id = :attestationId")
     suspend fun deleteAttestation(attestationId: Long)
 
@@ -105,6 +117,9 @@ interface HseDao {
 
     @Query("DELETE FROM incidents WHERE id = :incidentId")
     suspend fun deleteIncident(incidentId: Long)
+
+    @Query("DELETE FROM incidents WHERE title IN (:titles)")
+    suspend fun deleteIncidentsByTitles(titles: List<String>)
 
     @Query("SELECT COUNT(*) FROM incidents WHERE status = 'En cours'")
     fun getPendingRisksCount(): Flow<Int>
@@ -151,6 +166,12 @@ interface HseDao {
 
     @Query("DELETE FROM notifications WHERE id = :notificationId")
     suspend fun deleteNotification(notificationId: Long)
+
+    @Query("DELETE FROM notifications WHERE title IN (:titles)")
+    suspend fun deleteNotificationsByTitles(titles: List<String>)
+
+    @Query("DELETE FROM notifications")
+    suspend fun clearAllNotifications()
 
     @Query("UPDATE notifications SET isRead = 1 WHERE id = :notificationId")
     suspend fun markNotificationAsRead(notificationId: Long)

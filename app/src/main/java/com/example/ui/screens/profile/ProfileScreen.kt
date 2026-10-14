@@ -123,7 +123,7 @@ fun ProfileScreen(
                 .padding(bottom = 80.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Hero Header (Compact & Responsive)
+            // Hero Header (Primaire Vert forêt #1B7F4B -> Vert profond #0F5132)
             item {
                 Box(
                     modifier = Modifier
@@ -131,8 +131,8 @@ fun ProfileScreen(
                         .background(
                             Brush.verticalGradient(
                                 listOf(
-                                    Color(0xFF1E3A8A),
-                                    Color(0xFF0F1A30)
+                                    HSEBluePrimary,
+                                    HSEBlueDark
                                 )
                             )
                         )
@@ -145,7 +145,7 @@ fun ProfileScreen(
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                                .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -173,7 +173,7 @@ fun ProfileScreen(
                 }
             }
 
-            // User Info Card (Pic 12)
+            // User Info Card
             item {
                 Card(
                     modifier = Modifier
@@ -181,7 +181,8 @@ fun ProfileScreen(
                         .padding(horizontal = 20.dp, vertical = 8.dp)
                         .testTag("user_profile_card"),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = HSECardBg)
+                    colors = CardDefaults.cardColors(containerColor = HSECardBg),
+                    border = BorderStroke(1.dp, HSECardBorder)
                 ) {
                     Row(
                         modifier = Modifier
@@ -209,7 +210,7 @@ fun ProfileScreen(
                         Column {
                             Text(
                                 text = activeUser?.name?.takeIf { it.isNotBlank() } ?: "Utilisateur",
-                                color = Color.White,
+                                color = HSETextPrimary,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -251,7 +252,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Section: Préférences (Pic 12)
+            // Section: Préférences
             item {
                 Text(
                     text = "Préférences",
@@ -269,7 +270,8 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = HSECardBg)
+                    colors = CardDefaults.cardColors(containerColor = HSECardBg),
+                    border = BorderStroke(1.dp, HSECardBorder)
                 ) {
                     Row(
                         modifier = Modifier
@@ -282,14 +284,14 @@ fun ProfileScreen(
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
-                                    .background(HSEBluePrimary.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                                    .background(HSECardElevated, RoundedCornerShape(10.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Notifications, contentDescription = null, tint = HSEBlueLight, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Notifications, contentDescription = null, tint = HSEBluePrimary, modifier = Modifier.size(20.dp))
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Text("Notifications push", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Notifications push", color = HSETextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                 Text("Alertes urgentes et rappels", color = HSETextSecondary, fontSize = 11.sp)
                             }
                         }
@@ -323,7 +325,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Section: Engagement & Retours (Pic 12)
+            // Section: Engagement & Retours
             item {
                 Text(
                     text = "Engagement & Retours",
@@ -354,177 +356,6 @@ fun ProfileScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                     testTag = "nav_success_stories"
                 )
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            // Section: Administration & Gestion HSE (Visible ONLY for Administrators)
-            if (activeUser.isAdmin) {
-                item {
-                    Text(
-                        text = "Administration",
-                        color = HSETextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                    )
-                }
-
-                item {
-                    ProfileNavCard(
-                        title = "Gestion des Contenus",
-                        subtitle = "Documents, Vidéos, Photos, Liens",
-                        icon = Icons.Default.FolderSpecial,
-                        badgeText = "Admin",
-                        badgeColor = Color(0xFF047857),
-                        onClick = { viewModel.isAdminContentScreenOpen.value = true },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                        testTag = "nav_admin_contents"
-                    )
-                }
-
-                item {
-                    ProfileNavCard(
-                        title = "Gestion des Utilisateurs",
-                        subtitle = "Comptes, Rôles, Validations, Accès",
-                        icon = Icons.Default.AdminPanelSettings,
-                        badgeText = "Admin",
-                        badgeColor = Color(0xFFDC2626),
-                        onClick = { viewModel.isAdminUsersScreenOpen.value = true },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                        testTag = "nav_admin_users"
-                    )
-                }
-
-                item {
-                    ProfileNavCard(
-                        title = "Registre des Attestations",
-                        subtitle = "Lectures certifiées & conformité",
-                        icon = Icons.Default.VerifiedUser,
-                        badgeText = "Certifs",
-                        badgeColor = Color(0xFF0284C7),
-                        onClick = { viewModel.isAdminAttestationsScreenOpen.value = true },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                        testTag = "nav_admin_attestations"
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
-            }
-
-            // Section: Services Cloud & Sécurité
-            item {
-                Text(
-                    text = "Services Cloud & Sécurité",
-                    color = HSETextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                )
-            }
-
-            item {
-                val firebaseStatus = remember { viewModel.getFirebaseProjectStatus() }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = HSECardBg),
-                    border = BorderStroke(1.dp, HSECardBorder)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(Color(0xFF047857).copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CloudDone,
-                                        contentDescription = null,
-                                        tint = Color(0xFF10B981),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = "Firebase & Firestore",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Projet : ${firebaseStatus["projectId"] ?: "abeissa-a2e66"}",
-                                        color = HSETextSecondary,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            }
-                            Surface(
-                                color = Color(0xFF10B981).copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(Color(0xFF10B981), CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = "Actif",
-                                        color = Color(0xFF10B981),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider(color = HSECardBorder)
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Row 1: Auth
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Authentification :", color = HSETextSecondary, fontSize = 11.sp)
-                            Text("Google Sign-In & Auth", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Row 2: Database
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Base de données :", color = HSETextSecondary, fontSize = 11.sp)
-                            Text("Cloud Firestore (Temps Réel)", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Row 3: Storage
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Serveur Fichiers :", color = HSETextSecondary, fontSize = 11.sp)
-                            Text("Firebase Storage Multi-devices", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
@@ -561,7 +392,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Logout Button (Pic 12)
+            // Logout Button (Bouton large pour gants et terrain)
             item {
                 Card(
                     modifier = Modifier
@@ -570,8 +401,8 @@ fun ProfileScreen(
                         .clickable { viewModel.isLogoutDialogOpen.value = true }
                         .testTag("logout_button"),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = HSERedUrgent.copy(alpha = 0.15f)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, HSERedUrgent.copy(alpha = 0.3f))
+                    colors = CardDefaults.cardColors(containerColor = HSERedUrgent),
+                    border = BorderStroke(1.dp, HSERedUrgent)
                 ) {
                     Row(
                         modifier = Modifier
@@ -580,11 +411,11 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = HSERedUrgent, modifier = Modifier.size(20.dp))
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Se déconnecter",
-                            color = HSERedUrgent,
+                            text = "✖ Se déconnecter",
+                            color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
@@ -593,7 +424,7 @@ fun ProfileScreen(
             }
         }
 
-        // Logout Confirmation Dialog (Pic 16)
+        // Logout Confirmation Dialog
         if (isLogoutOpen) {
             AlertDialog(
                 onDismissRequest = { viewModel.isLogoutDialogOpen.value = false },
@@ -603,14 +434,14 @@ fun ProfileScreen(
                     Box(
                         modifier = Modifier
                             .size(50.dp)
-                            .background(HSERedUrgent.copy(alpha = 0.2f), CircleShape),
+                            .background(HSERedUrgent.copy(alpha = 0.15f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = HSERedUrgent, modifier = Modifier.size(24.dp))
                     }
                 },
                 title = {
-                    Text("Déconnexion", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Déconnexion", color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 },
                 text = {
                     Text(
@@ -627,7 +458,7 @@ fun ProfileScreen(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.testTag("confirm_logout_button")
                     ) {
-                        Text("Se déconnecter", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("✖ Se déconnecter", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
@@ -661,12 +492,13 @@ fun ProfileNavCard(
             .clickable(onClick = onClick)
             .testTag(testTag),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = HSECardBg)
+        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+        border = BorderStroke(1.dp, HSECardBorder)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -676,17 +508,17 @@ fun ProfileNavCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
-                        .background(HSEBluePrimary.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                        .size(36.dp)
+                        .background(HSECardElevated, RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = icon, contentDescription = null, tint = HSEBlueLight, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = icon, contentDescription = null, tint = HSEBluePrimary, modifier = Modifier.size(18.dp))
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(text = title, color = HSETextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(text = subtitle, color = HSETextSecondary, fontSize = 11.sp)
                 }
@@ -779,8 +611,36 @@ fun NotificationsCenterScreen(
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = Color.White)
                             }
 
-                            TextButton(onClick = { viewModel.markAllNotificationsAsRead() }) {
-                                Text("Tout marquer lu", color = HSEBlueLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                TextButton(onClick = { viewModel.markAllNotificationsAsRead() }) {
+                                    Text("Tout marquer lu", color = HSEBlueLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                if (notifications.isNotEmpty()) {
+                                    Button(
+                                        onClick = { viewModel.clearAllNotifications() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = HSERedUrgent),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.testTag("clear_all_notifications_btn")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DeleteSweep,
+                                            contentDescription = "Tout vider",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Tout vider",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -1073,7 +933,7 @@ fun SurveysScreen(
                 onDismissRequest = { activeSurveyToAnswer = null },
                 containerColor = HSECardBg,
                 title = {
-                    Text(survey.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(survey.title, color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 },
                 text = {
                     Column(
@@ -1084,7 +944,7 @@ fun SurveysScreen(
                     ) {
                         Text(
                             "1. Comment évaluez-vous l'expérience globale de l'application ?",
-                            color = Color.White,
+                            color = HSETextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1111,7 +971,7 @@ fun SurveysScreen(
 
                         Text(
                             "2. Disposez-vous de toutes les fonctionnalités nécessaires ?",
-                            color = Color.White,
+                            color = HSETextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1137,7 +997,7 @@ fun SurveysScreen(
 
                         Text(
                             "3. Vos suggestions d'amélioration :",
-                            color = Color.White,
+                            color = HSETextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1148,12 +1008,13 @@ fun SurveysScreen(
                             placeholder = { Text("Ex: Ajouter une fonctionnalité...", color = HSETextMuted) },
                             modifier = Modifier.fillMaxWidth().height(80.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = HSEFieldBg,
+                                focusedContainerColor = Color.White,
                                 unfocusedContainerColor = HSEFieldBg,
-                                focusedBorderColor = HSEBlueLight,
+                                focusedBorderColor = HSEBluePrimary,
                                 unfocusedBorderColor = HSECardBorder,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedTextColor = HSETextPrimary,
+                                unfocusedTextColor = HSETextPrimary,
+                                cursorColor = HSEBluePrimary
                             ),
                             shape = RoundedCornerShape(8.dp)
                         )

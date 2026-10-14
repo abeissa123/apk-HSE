@@ -26,8 +26,6 @@ import com.example.ui.screens.admin.AdminUsersScreen
 import com.example.ui.screens.auth.LoginScreen
 import com.example.ui.screens.content.ContentReaderDialog
 import com.example.ui.screens.dashboard.DashboardScreen
-import com.example.ui.screens.emergency.EmergencyScreen
-import com.example.ui.screens.ia.HseIaScreen
 import com.example.ui.screens.policies.PoliciesScreen
 import com.example.ui.screens.profile.NotificationsCenterScreen
 
@@ -51,9 +49,7 @@ class MainActivity : ComponentActivity() {
     // Check if opened from notification
     intent?.let { intent ->
       val targetTab = intent.getStringExtra("target_tab")
-      if (targetTab == "URGENCE") {
-        viewModel.setTab(MainTab.URGENCE)
-      } else if (targetTab == "NOTIFICATIONS" || intent.hasExtra("notification_type")) {
+      if (targetTab == "NOTIFICATIONS" || intent.hasExtra("notification_type")) {
         viewModel.isNotificationsScreenOpen.value = true
       }
     }
@@ -130,11 +126,6 @@ fun MainAppContent(
       viewModel = viewModel,
       modifier = modifier
     )
-  } else if (isHseIaOpen) {
-    HseIaScreen(
-      viewModel = viewModel,
-      onBack = { viewModel.closeHseIa() }
-    )
   } else if (isAdminContentOpen && isUserAdmin) {
     AdminContentScreen(
       viewModel = viewModel,
@@ -201,10 +192,9 @@ fun MainAppContent(
             }
           }
           MainTab.PROGRAMME -> ProgramScreen(viewModel = viewModel)
-          MainTab.URGENCE -> EmergencyScreen(viewModel = viewModel)
           MainTab.POLITIQUES -> PoliciesScreen(viewModel = viewModel)
           MainTab.PROFIL -> ProfileScreen(viewModel = viewModel)
-          MainTab.IA -> HseIaScreen(viewModel = viewModel, onBack = { viewModel.setTab(MainTab.DASHBOARD) })
+          else -> DashboardScreen(viewModel = viewModel)
         }
       }
     }

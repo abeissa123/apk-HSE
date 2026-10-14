@@ -102,6 +102,35 @@ object CloudStorageManager {
                 compressedBytes = compressImageIfNeeded(appCtx, localFilePathOrUri)
             }
 
+            // First attempt upload via Backblaze B2 File Server
+            try {
+                val fileBytes: ByteArray? = when {
+                    compressedBytes != null -> compressedBytes
+                    localFilePathOrUri.startsWith("content://") && appCtx != null -> {
+                        val uri = Uri.parse(localFilePathOrUri)
+                        appCtx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    }
+                    else -> {
+                        val file = File(localFilePathOrUri)
+                        if (file.exists()) file.readBytes() else null
+                    }
+                }
+
+                if (fileBytes != null) {
+                    val b2ResultUrl = B2CloudStorageService.uploadFile(
+                        bytes = fileBytes,
+                        fileName = fileName,
+                        contentType = mimeType
+                    )
+                    if (!b2ResultUrl.isNullOrBlank()) {
+                        Log.d(TAG, "Fichier téléversé sur Backblaze B2 avec succès: $b2ResultUrl")
+                        return@withContext b2ResultUrl
+                    }
+                }
+            } catch (b2Ex: Exception) {
+                Log.w(TAG, "Tentative B2 ignorée, repli vers Firebase Storage: ${b2Ex.message}")
+            }
+
             if (compressedBytes != null) {
                 Log.d(TAG, "Image compressée pour téléversement ultra-rapide (${compressedBytes.size / 1024} KB)")
                 fileRef.putBytes(compressedBytes, metadata).await()
@@ -218,6 +247,22 @@ object CloudStorageManager {
         } catch (e: Exception) {
             Log.w(TAG, "Fast compression skipped, falling back to original stream: ${e.message}")
             null
+        }
+    }
+
+    suspend fun syncB2ServerFiles(repository: com.example.data.repository.HseRepository, context: Context? = null): B2SyncResult {
+        return B2CloudStorageService.syncB2FilesToDatabase(repository, context)
+    }
+
+    suspend fun testB2Connection(): Pair<Boolean, String> {
+        return B2CloudStorageService.testConnection()
+    }
+
+    suspend fun listB2Files(): List<B2FileItem> {
+        return try {
+            B2CloudStorageService.listBucketFiles()
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

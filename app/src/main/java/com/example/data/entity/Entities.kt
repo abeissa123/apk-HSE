@@ -23,7 +23,12 @@ data class UserEntity(
     val department: String = "Sécurité Industrielle",
     val status: String = "Actif", // "Actif", "Inactif", "En attente"
     val isOnline: Boolean = false,
-    val lastActiveMillis: Long = System.currentTimeMillis()
+    val lastActiveMillis: Long = System.currentTimeMillis(),
+    val password: String = "",
+    val firebaseUid: String = "",
+    val authSynced: Boolean = true,
+    val resetRequested: Boolean = false,
+    val resetRequestNote: String = ""
 ) {
     val isAdmin: Boolean
         get() = role.equals("Admin", ignoreCase = true) ||

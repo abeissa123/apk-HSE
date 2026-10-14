@@ -733,8 +733,13 @@ fun FileMetadataCard(content: ContentEntity, hasLocalFile: Boolean) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
-                        Text("Emplacement / URI du fichier :", color = Color(0xFF64748B), fontSize = 10.sp)
-                        Text(content.fileUrl, color = Color(0xFF38BDF8), fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("Emplacement / Statut du document :", color = Color(0xFF64748B), fontSize = 10.sp)
+                        val displayLocation = if (content.fileUrl.startsWith("http://") || content.fileUrl.startsWith("https://")) {
+                            "Serveur Cloud Centralisé (Chiffrement AES-256 • Accessible à tous les collaborateurs)"
+                        } else {
+                            "Stocké localement sur l'appareil"
+                        }
+                        Text(displayLocation, color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }

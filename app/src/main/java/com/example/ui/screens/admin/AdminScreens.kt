@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -61,13 +62,10 @@ fun AdminContentScreen(
         return
     }
 
-    // Tabs: 0 -> Medias & Docs, 1 -> Succes Stories, 2 -> Sondages & Enquêtes, 3 -> Centre de Notification
+    // Tabs: 0 -> Succes Stories, 1 -> Sondages & Enquêtes, 2 -> Centre de Notification
     var selectedTab by remember { mutableStateOf(0) }
 
     // State for Content
-    var selectedTypeFilter by remember { mutableStateOf("Tous") }
-    var selectedCategoryFilter by remember { mutableStateOf("Toutes catégories") }
-    var contentSearchQuery by remember { mutableStateOf("") }
     val isAddEditContentOpen by viewModel.isAddEditContentOpen.collectAsState()
     val editingContent by viewModel.editingContent.collectAsState()
     val adminErrorMessage by viewModel.adminErrorMessage.collectAsState()
@@ -96,22 +94,6 @@ fun AdminContentScreen(
     // Confirmation dialog state
     var itemToDelete by remember { mutableStateOf<DeleteTarget?>(null) }
 
-    val totalCount = contents.size
-    val totalViews = contents.sumOf { it.viewsCount }
-    val pdfCount = contents.count { it.type == "PDF" }
-    val photoCount = contents.count { it.type == "PHOTO" }
-    val videoCount = contents.count { it.type == "VIDEO" }
-    val linkCount = contents.count { it.type == "LIEN" }
-
-    val filteredContents = remember(contents, selectedTypeFilter, selectedCategoryFilter, contentSearchQuery) {
-        contents.filter { item ->
-            val matchType = selectedTypeFilter == "Tous" || item.type.equals(selectedTypeFilter, ignoreCase = true)
-            val matchCat = selectedCategoryFilter == "Toutes catégories" || item.category.equals(selectedCategoryFilter, ignoreCase = true)
-            val matchQuery = contentSearchQuery.isBlank() || item.title.contains(contentSearchQuery, ignoreCase = true) || item.description.contains(contentSearchQuery, ignoreCase = true)
-            matchType && matchCat && matchQuery
-        }
-    }
-
     val filteredStories = remember(stories, storySearchQuery) {
         stories.filter { s ->
             storySearchQuery.isBlank() || s.title.contains(storySearchQuery, ignoreCase = true) || s.description.contains(storySearchQuery, ignoreCase = true) || s.authorName.contains(storySearchQuery, ignoreCase = true) || s.site.contains(storySearchQuery, ignoreCase = true)
@@ -130,7 +112,7 @@ fun AdminContentScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF047857)) // Emerald Green header
+                    .background(Color(0xFF1B7F4B)) // Primaire Vert forêt #1B7F4B
                     .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
@@ -157,13 +139,13 @@ fun AdminContentScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Gestion Multimédia & Contenus",
+                                text = "Gestion des Contenus",
                                 color = Color.White,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Synchronisation temps réel Firestore",
+                                text = "Succès Stories, Sondages & Notifications",
                                 color = Color.White.copy(alpha = 0.85f),
                                 fontSize = 11.sp
                             )
@@ -198,7 +180,7 @@ fun AdminContentScreen(
             // Permissions Banner
             MediaPermissionBanner()
 
-            // 4-Tab Segmented Selector
+            // 3-Tab Segmented Selector (Médias & Serveur Cloud removed)
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = Color(0xFF1E293B),
@@ -212,183 +194,36 @@ fun AdminContentScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("📁 Médias (${contents.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
-                    selectedContentColor = Color(0xFF10B981),
+                    text = { Text("🏆 Succès Stories (${stories.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
+                    selectedContentColor = Color(0xFFF57C00),
                     unselectedContentColor = Color(0xFF94A3B8)
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("🏆 Succès Stories (${stories.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
-                    selectedContentColor = Color(0xFFF59E0B),
+                    text = { Text("📊 Sondages (${surveys.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
+                    selectedContentColor = Color(0xFF0288D1),
                     unselectedContentColor = Color(0xFF94A3B8)
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("📊 Sondages (${surveys.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
-                    selectedContentColor = Color(0xFF38BDF8),
-                    unselectedContentColor = Color(0xFF94A3B8)
-                )
-                Tab(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    text = { Text("🔔 Notifications (${notifications.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) },
-                    selectedContentColor = Color(0xFFEF4444),
+                    text = { Text("🔔 Notifications (${notifications.size})", fontSize = 12.sp, fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
+                    selectedContentColor = Color(0xFFD32F2F),
                     unselectedContentColor = Color(0xFF94A3B8)
                 )
             }
 
-            // ==================== TAB 0: MÉDIAS & DOCUMENTS ====================
+            // ==================== TAB 0: SUCCÈS STORIES ====================
             if (selectedTab == 0) {
-                // Overview & Stats
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.Layers, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("PUBLIÉS", color = Color(0xFF10B981), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text("$totalCount", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                            Text("Fichiers multimédias", color = Color(0xFF64748B), fontSize = 10.sp)
-                        }
-                    }
-
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.Visibility, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("CONSULTATIONS", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(if (totalViews >= 1000) String.format("%.1fK", totalViews / 1000f) else "$totalViews", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                            Text("Vues cumulées", color = Color(0xFF64748B), fontSize = 10.sp)
-                        }
-                    }
-                }
-
-                // Small stats badges
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    StatBadgeItem(icon = Icons.Default.Description, count = pdfCount, label = "PDFs", color = Color(0xFFEF4444), modifier = Modifier.weight(1f))
-                    StatBadgeItem(icon = Icons.Default.Image, count = photoCount, label = "Photos", color = Color(0xFF10B981), modifier = Modifier.weight(1f))
-                    StatBadgeItem(icon = Icons.Default.Videocam, count = videoCount, label = "Vidéos", color = Color(0xFF3B82F6), modifier = Modifier.weight(1f))
-                    StatBadgeItem(icon = Icons.Default.Link, count = linkCount, label = "Liens", color = Color(0xFFA855F7), modifier = Modifier.weight(1f))
-                }
-
-                // Add button
-                Button(
-                    onClick = {
-                        viewModel.editingContent.value = null
-                        viewModel.isAddEditContentOpen.value = true
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF047857)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .testTag("admin_add_content_btn")
-                ) {
-                    Icon(imageVector = Icons.Default.AddCircleOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ajouter un contenu multimédia", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-
-                // Search & Filters
-                OutlinedTextField(
-                    value = contentSearchQuery,
-                    onValueChange = { contentSearchQuery = it },
-                    placeholder = { Text("Rechercher un média ou document...", color = Color(0xFF64748B), fontSize = 13.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color(0xFF1E293B),
-                        unfocusedContainerColor = Color(0xFF1E293B),
-                        focusedBorderColor = Color(0xFF10B981),
-                        unfocusedBorderColor = Color(0xFF334155)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Type filter chips
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("Tous", "PDF", "Photo", "Vidéo", "Lien").forEach { type ->
-                        val isSel = selectedTypeFilter == type
-                        FilterChip(
-                            selected = isSel,
-                            onClick = { selectedTypeFilter = type },
-                            label = { Text(type, fontSize = 12.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF047857),
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFF1E293B),
-                                labelColor = Color(0xFF94A3B8)
-                            ),
-                            border = BorderStroke(1.dp, if (isSel) Color(0xFF10B981) else Color(0xFF334155))
-                        )
-                    }
-                }
-
-                // List
-                filteredContents.forEach { item ->
-                    ContentCardItem(
-                        content = item,
-                        onEdit = {
-                            viewModel.editingContent.value = item
-                            viewModel.isAddEditContentOpen.value = true
-                        },
-                        onDelete = {
-                            itemToDelete = DeleteTarget(
-                                id = item.id,
-                                title = item.title,
-                                typeLabel = "Contenu Multimédia",
-                                onConfirmDelete = { viewModel.deleteContent(item.id) }
-                            )
-                        },
-                        onOpen = { viewModel.openContentReader(item) }
-                    )
-                }
-
-                if (filteredContents.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
-                        Text("Aucun contenu multimédia trouvé", color = Color(0xFF64748B), fontSize = 13.sp)
-                    }
-                }
-            }
-
-            // ==================== TAB 1: SUCCÈS STORIES ====================
-            if (selectedTab == 1) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("BONNES PRATIQUES & SUCCÈS DU TERRAIN", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Surface(color = Color(0xFFF59E0B).copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
-                        Text("${stories.size} publiées", color = Color(0xFFF59E0B), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    Surface(color = Color(0xFFF57C00).copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
+                        Text("${stories.size} publiées", color = Color(0xFFF57C00), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
                 }
 
@@ -397,11 +232,11 @@ fun AdminContentScreen(
                         editingStory = null
                         isAddEditStoryOpen = true
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("admin_add_story_btn")
                 ) {
                     Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
@@ -419,7 +254,7 @@ fun AdminContentScreen(
                         unfocusedTextColor = Color.White,
                         focusedContainerColor = Color(0xFF1E293B),
                         unfocusedContainerColor = Color(0xFF1E293B),
-                        focusedBorderColor = Color(0xFFF59E0B),
+                        focusedBorderColor = Color(0xFFF57C00),
                         unfocusedBorderColor = Color(0xFF334155)
                     ),
                     shape = RoundedCornerShape(12.dp),
@@ -451,16 +286,16 @@ fun AdminContentScreen(
                 }
             }
 
-            // ==================== TAB 2: SONDAGES & ENQUÊTES ====================
-            if (selectedTab == 2) {
+            // ==================== TAB 1: SONDAGES & ENQUÊTES ====================
+            if (selectedTab == 1) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("CONSULTATIONS DU PERSONNEL & ENQUÊTES", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Surface(color = Color(0xFF38BDF8).copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
-                        Text("${surveys.size} sondage(s)", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    Surface(color = Color(0xFF0288D1).copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
+                        Text("${surveys.size} sondage(s)", color = Color(0xFF0288D1), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
                 }
 
@@ -469,11 +304,11 @@ fun AdminContentScreen(
                         editingSurvey = null
                         isAddEditSurveyOpen = true
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("admin_add_survey_btn")
                 ) {
                     Icon(imageVector = Icons.Default.Poll, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
@@ -491,7 +326,7 @@ fun AdminContentScreen(
                         unfocusedTextColor = Color.White,
                         focusedContainerColor = Color(0xFF1E293B),
                         unfocusedContainerColor = Color(0xFF1E293B),
-                        focusedBorderColor = Color(0xFF38BDF8),
+                        focusedBorderColor = Color(0xFF0288D1),
                         unfocusedBorderColor = Color(0xFF334155)
                     ),
                     shape = RoundedCornerShape(12.dp),
@@ -527,31 +362,61 @@ fun AdminContentScreen(
                 }
             }
 
-            // ==================== TAB 3: CENTRE DE NOTIFICATIONS ====================
-            if (selectedTab == 3) {
+            // ==================== TAB 2: CENTRE DE NOTIFICATIONS ====================
+            if (selectedTab == 2) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("DIFFUSION DES ALERTES & NOTIFICATIONS FLASH", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Surface(color = Color(0xFFEF4444).copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
-                        Text("${notifications.size} alertes", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    Surface(color = Color(0xFFD32F2F).copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
+                        Text("${notifications.size} alertes", color = Color(0xFFD32F2F), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
                 }
 
                 Button(
                     onClick = { isSendNotificationOpen = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("admin_send_notif_btn")
                 ) {
                     Icon(imageVector = Icons.Default.Campaign, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Diffuser une Alerte / Notification Flash", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("⚠ Diffuser une Alerte / Notification Flash", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+
+                if (notifications.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = { viewModel.clearAllNotifications() },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color(0xFFD32F2F).copy(alpha = 0.12f),
+                            contentColor = Color(0xFFEF5350)
+                        ),
+                        border = BorderStroke(1.dp, Color(0xFFD32F2F)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .testTag("admin_clear_all_notifications_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteSweep,
+                            contentDescription = "Tout vider",
+                            tint = Color(0xFFEF5350),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "✖ Tout vider les notifications (${notifications.size})",
+                            color = Color(0xFFEF5350),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
 
                 notifications.forEach { notif ->
@@ -2122,5 +1987,331 @@ fun AdminAccessRestrictedView(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun B2CloudServerAdminView(viewModel: HseViewModel) {
+    val context = LocalContext.current
+    val b2Status by viewModel.b2ConnectionStatus.collectAsState()
+    val isB2Syncing by viewModel.isB2Syncing.collectAsState()
+    val b2Files by viewModel.b2FilesList.collectAsState()
+
+    var testDialogMessage by remember { mutableStateOf<String?>(null) }
+    var isTestingConnection by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Hero Header Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.5f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF0284C7).copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudSync,
+                                contentDescription = null,
+                                tint = Color(0xFF38BDF8),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Serveur Documentaire HSE Cloud",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Distribution sécurisée de la documentation pour tous",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = Color(0xFF10B981).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(modifier = Modifier.size(6.dp).background(Color(0xFF10B981), CircleShape))
+                            Text(
+                                text = "OPÉRATIONNEL",
+                                color = Color(0xFF10B981),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = Color(0xFF334155))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Parameter Details Grid (Masked for Security)
+                B2ParameterRow(label = "Serveur", value = "Serveur Documentaire Centralisé")
+                Spacer(modifier = Modifier.height(6.dp))
+                B2ParameterRow(label = "Identifiant de liaison", value = com.example.util.B2CloudStorageService.MASKED_KEY_ID)
+                Spacer(modifier = Modifier.height(6.dp))
+                B2ParameterRow(label = "Clé d'autorisation", value = "•••••••••••••••••••••••• (Protégée)")
+                Spacer(modifier = Modifier.height(6.dp))
+                B2ParameterRow(label = "Espace de stockage", value = "Stockage Cloud Sécurisé (Chiffrement AES-256)")
+                Spacer(modifier = Modifier.height(6.dp))
+                B2ParameterRow(label = "Accès collaborateurs", value = "Ouvert à tous les utilisateurs")
+                Spacer(modifier = Modifier.height(6.dp))
+                B2ParameterRow(label = "Statut synchronisation", value = b2Status)
+            }
+        }
+
+        // Action Buttons Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = {
+                    isTestingConnection = true
+                    viewModel.testB2Connection { success, message ->
+                        isTestingConnection = false
+                        testDialogMessage = message
+                    }
+                },
+                enabled = !isTestingConnection,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f).height(44.dp).testTag("test_b2_connection_btn")
+            ) {
+                if (isTestingConnection) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Test en cours...", fontSize = 12.sp)
+                } else {
+                    Icon(imageVector = Icons.Default.NetworkCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Tester la liaison", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Button(
+                onClick = {
+                    viewModel.syncB2Files { res ->
+                        Toast.makeText(context, res.message, Toast.LENGTH_SHORT).show()
+                    }
+                },
+                enabled = !isB2Syncing,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF047857)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f).height(44.dp).testTag("sync_b2_files_btn")
+            ) {
+                if (isB2Syncing) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Synchronisation...", fontSize = 12.sp)
+                } else {
+                    Icon(imageVector = Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Synchroniser pour tous", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Section: Remote Files on Centralized Storage
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Documents disponibles sur le serveur centralisé",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${b2Files.size} document(s)",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (b2Files.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Cliquez sur « Synchroniser les fichiers » pour charger la liste du bucket.",
+                                color = Color(0xFF64748B),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                } else {
+                    b2Files.forEach { file ->
+                        Surface(
+                            color = Color(0xFF0F172A),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFF334155)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Description,
+                                        contentDescription = null,
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = file.fileName,
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${MediaStorageHelper.formatFileSize(file.contentLength)} • ${file.contentType}",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                    onClick = {
+                                        if (file.downloadUrl.isNotBlank()) {
+                                            MediaStorageHelper.openFileWithExternalViewer(context, file.downloadUrl)
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Consulter", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Informational architecture note
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, Color(0xFF334155)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.Security, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Architecture Multi-Appareils", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "• Les fichiers déposés sur le serveur cloud centralisé sont accessibles à tous les collaborateurs depuis n'importe quel smartphone Android.\n" +
+                           "• L'application génère des jetons d'autorisation temporaires et sécurisés conformes aux règles de sécurité.\n" +
+                           "• Tous les utilisateurs peuvent consulter les rapports, livrets et procédures en toute sécurité.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+
+    testDialogMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { testDialogMessage = null },
+            containerColor = Color(0xFF1E293B),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.CloudDone, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Diagnostic Backblaze B2", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text(
+                    text = msg,
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { testDialogMessage = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Fermer")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun B2ParameterRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, color = Color(0xFF94A3B8), fontSize = 12.sp)
+        Text(text = value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }

@@ -107,7 +107,7 @@ fun BrandHeader(modifier: Modifier = Modifier) {
             )
             Text(
                 text = "SPIRIT",
-                color = HSETextSecondary,
+                color = Color.White.copy(alpha = 0.85f),
                 fontWeight = FontWeight.Bold,
                 fontSize = 10.sp,
                 letterSpacing = 1.sp
@@ -307,7 +307,7 @@ fun SiteWeatherPill(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = HSEBlueLight,
+                        tint = Color(0xFFE8F5E9),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(5.dp))
@@ -324,13 +324,13 @@ fun SiteWeatherPill(
                             Icon(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = "Site affecté verrouillé",
-                                tint = HSETextSecondary,
+                                tint = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.size(10.dp)
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Site affecté",
-                                color = HSETextSecondary,
+                                color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Normal
                             )
@@ -359,7 +359,8 @@ fun HseBottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp, horizontal = 4.dp),
+                .navigationBarsPadding()
+                .padding(vertical = 8.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -399,26 +400,10 @@ fun HseBottomNavBar(
 
             BottomNavItem(
                 icon = Icons.Default.Shield,
-                label = "Politiques",
+                label = "Références",
                 isSelected = currentTab == MainTab.POLITIQUES,
                 onClick = { onTabSelected(MainTab.POLITIQUES) },
                 testTag = "nav_politiques"
-            )
-
-            BottomNavItem(
-                icon = Icons.Default.AutoAwesome,
-                label = "IA",
-                isSelected = currentTab == MainTab.IA,
-                onClick = { onTabSelected(MainTab.IA) },
-                testTag = "nav_hse_ia"
-            )
-
-            BottomNavItem(
-                icon = Icons.Default.LocalFireDepartment,
-                label = "Urgence",
-                isSelected = currentTab == MainTab.URGENCE,
-                onClick = { onTabSelected(MainTab.URGENCE) },
-                testTag = "nav_urgence"
             )
 
             BottomNavItem(
@@ -442,23 +427,26 @@ private fun BottomNavItem(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .defaultMinSize(minWidth = 56.dp, minHeight = 48.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isSelected) HSECardElevated else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 3.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
             .testTag(testTag)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (isSelected) HSEBlueLight else HSETextSecondary,
-            modifier = Modifier.size(21.dp)
+            tint = if (isSelected) HSEBluePrimary else HSETextSecondary,
+            modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            color = if (isSelected) HSEBlueLight else HSETextSecondary,
-            fontSize = 9.sp,
+            color = if (isSelected) HSEBluePrimary else HSETextSecondary,
+            fontSize = 11.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -467,9 +455,9 @@ private fun BottomNavItem(
             Box(
                 modifier = Modifier
                     .padding(top = 2.dp)
-                    .width(14.dp)
-                    .height(2.dp)
-                    .background(HSEBlueLight, RoundedCornerShape(1.dp))
+                    .width(18.dp)
+                    .height(2.5.dp)
+                    .background(HSEBluePrimary, RoundedCornerShape(1.dp))
             )
         }
     }

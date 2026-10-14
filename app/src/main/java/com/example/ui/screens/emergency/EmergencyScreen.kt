@@ -160,8 +160,9 @@ fun EmergencyScreen(
                                 )
                                 Text(
                                     text = "Consignes, fiches réflexes et plans par site",
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 11.sp
+                                    color = Color.White,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
@@ -201,9 +202,9 @@ fun EmergencyScreen(
                                         )
                                         Text(
                                             text = "Poste 100 • Infirmerie",
-                                            color = Color(0xFF475569),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium
+                                            color = Color(0xFF334155),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 }
@@ -215,7 +216,7 @@ fun EmergencyScreen(
                                     Text(
                                         text = "Appeler",
                                         color = Color.White,
-                                        fontSize = 11.sp,
+                                        fontSize = 12.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
@@ -255,9 +256,9 @@ fun EmergencyScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "Un doute ? Demandez à l'IA",
-                                        color = Color(0xFFE2E8F0),
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Medium
+                                        color = Color(0xFFF1F5F9),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                                 Icon(
@@ -394,8 +395,8 @@ fun SitePassageCardItem(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = plan.title,
-                        color = Color.White,
-                        fontSize = 13.sp,
+                        color = HSETextPrimary,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -404,7 +405,7 @@ fun SitePassageCardItem(
                     Text(
                         text = plan.description,
                         color = HSETextSecondary,
-                        fontSize = 11.sp,
+                        fontSize = 12.5.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -466,18 +467,19 @@ fun FicheReflexeGridCard(
             Column {
                 Text(
                     text = fiche.title,
-                    color = Color.White,
-                    fontSize = 12.sp,
+                    color = HSETextPrimary,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 15.sp,
+                    lineHeight = 17.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = "${fiche.stepsCount} étapes",
-                    color = HSETextMuted,
-                    fontSize = 10.sp
+                    color = HSETextSecondary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -750,9 +752,9 @@ fun ProcedureStepCardItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Étape ${step.stepNumber}",
-                    color = HSETextMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    color = HSETextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -852,11 +854,11 @@ fun SitePassageDetailScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Groups, contentDescription = null, tint = HSEGreenSafe)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Points de Rassemblement", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Points de Rassemblement", color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             plan.musterPoints.forEach { point ->
-                                Text("• $point", color = HSETextPrimary, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
+                                Text("• $point", color = HSETextPrimary, fontSize = 13.5.sp, modifier = Modifier.padding(vertical = 2.dp))
                             }
                         }
                     }
@@ -871,11 +873,11 @@ fun SitePassageDetailScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = HSEBlueLight)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Accès & Vitesse Maximale (${plan.speedLimitKmH} km/h)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Accès & Vitesse Maximale (${plan.speedLimitKmH} km/h)", color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             plan.accessPoints.forEach { acc ->
-                                Text("• $acc", color = HSETextPrimary, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
+                                Text("• $acc", color = HSETextPrimary, fontSize = 13.5.sp, modifier = Modifier.padding(vertical = 2.dp))
                             }
                         }
                     }
@@ -890,11 +892,11 @@ fun SitePassageDetailScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Warning, contentDescription = null, tint = HSERedUrgent)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Zones d'Attention Prioritaire", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Zones d'Attention Prioritaire", color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             plan.highRiskZones.forEach { zone ->
-                                Text("• $zone", color = HSEOrangeAlert, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
+                                Text("• $zone", color = HSEOrangeAlert, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 2.dp))
                             }
                         }
                     }

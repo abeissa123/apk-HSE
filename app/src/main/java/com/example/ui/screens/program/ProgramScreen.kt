@@ -69,7 +69,7 @@ fun ProgramScreen(
                 .padding(bottom = 80.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Hero Banner (Compact & Responsive)
+            // Hero Banner (Primaire Vert forêt #1B7F4B -> Vert profond #0F5132)
             item {
                 Box(
                     modifier = Modifier
@@ -77,8 +77,8 @@ fun ProgramScreen(
                         .background(
                             Brush.verticalGradient(
                                 listOf(
-                                    Color(0xFF1E3A8A),
-                                    Color(0xFF0F1A30)
+                                    HSEBluePrimary,
+                                    HSEBlueDark
                                 )
                             )
                         )
@@ -264,14 +264,15 @@ fun EventCardItem(
             .fillMaxWidth()
             .testTag("event_card_${event.id}"),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = HSECardBg)
+        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+        border = androidx.compose.foundation.BorderStroke(1.dp, HSECardBorder)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Tag & Status Row (Pic 10)
+            // Tag & Status Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -279,25 +280,26 @@ fun EventCardItem(
             ) {
                 Surface(
                     color = HSEFieldBg,
-                    shape = RoundedCornerShape(6.dp)
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, HSECardBorder)
                 ) {
                     Text(
                         text = event.tag,
-                        color = HSETextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        color = HSETextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
 
                 Surface(
-                    color = if (event.status == "En cours") HSEBluePrimary.copy(alpha = 0.2f) else HSEGreenSafe.copy(alpha = 0.2f),
+                    color = if (event.status == "En cours") HSECyanEvac else HSEGreenSafe,
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        text = event.status,
-                        color = if (event.status == "En cours") HSEBlueLight else HSEGreenSafe,
-                        fontSize = 11.sp,
+                        text = if (event.status == "En cours") "ℹ ${event.status}" else "✔ ${event.status}",
+                        color = Color.White,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
@@ -309,7 +311,7 @@ fun EventCardItem(
             // Title
             Text(
                 text = event.title,
-                color = Color.White,
+                color = HSETextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -375,7 +377,8 @@ fun TrainingCardItem(
             .fillMaxWidth()
             .testTag("training_card_${training.id}"),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = HSECardBg)
+        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+        border = androidx.compose.foundation.BorderStroke(1.dp, HSECardBorder)
     ) {
         Row(
             modifier = Modifier
@@ -383,12 +386,12 @@ fun TrainingCardItem(
                 .padding(12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Date Badge (Day + Month) (Pic 11)
+            // Date Badge (Day + Month)
             Box(
                 modifier = Modifier
                     .width(48.dp)
                     .height(54.dp)
-                    .background(HSECardElevated, RoundedCornerShape(10.dp)),
+                    .background(HSEBluePrimary, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -400,8 +403,8 @@ fun TrainingCardItem(
                     )
                     Text(
                         text = training.monthShort,
-                        color = HSETextMuted,
-                        fontSize = 10.sp,
+                        color = Color.White,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -413,8 +416,8 @@ fun TrainingCardItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = training.title,
-                    color = Color.White,
-                    fontSize = 14.sp,
+                    color = HSETextPrimary,
+                    fontSize = 14.5.sp,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -423,7 +426,8 @@ fun TrainingCardItem(
                 Text(
                     text = "Formateur : ${training.instructor}",
                     color = HSETextSecondary,
-                    fontSize = 11.sp
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
 
                 Spacer(modifier = Modifier.height(2.dp))
@@ -432,14 +436,15 @@ fun TrainingCardItem(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = HSETextMuted,
-                        modifier = Modifier.size(12.dp)
+                        tint = HSETextSecondary,
+                        modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${training.site} • ${training.durationHours}h",
-                        color = HSETextMuted,
-                        fontSize = 11.sp
+                        color = HSETextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
@@ -447,9 +452,9 @@ fun TrainingCardItem(
 
                 Text(
                     text = "${training.enrolledCount} / ${training.maxCapacity} inscrits",
-                    color = HSETextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    color = HSEBluePrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -461,11 +466,11 @@ fun TrainingCardItem(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = HSEBlueLight),
                     border = androidx.compose.foundation.BorderStroke(1.dp, HSEBlueLight.copy(alpha = 0.4f)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    modifier = Modifier.fillMaxWidth().height(32.dp)
+                    modifier = Modifier.fillMaxWidth().height(34.dp)
                 ) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Module vidéo préparatoire", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Module vidéo préparatoire", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -484,12 +489,12 @@ fun TrainingCardItem(
                 ) {
                     if (training.isEnrolled) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Inscrit(e) — Annuler", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Inscrit(e) — Annuler", color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        Text("S'inscrire à la formation", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("S'inscrire à la formation", color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
         HseIaSessionEntity::class,
         HseIaMessageEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +36,64 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
+
+        val DEMO_USER_EMAILS = setOf(
+            "admin@holcim.cm",
+            "admin@cimencam.cm",
+            "manager@holcim.cm",
+            "paulin.mbassi@cimencam.cm",
+            "marc.atangana@cimencam.cm",
+            "angeline.nkoa@cimencam.cm",
+            "oumarou.sali@cimencam.cm",
+            "alain.mbarga@cimencam.cm",
+            "emmanuel.biya@cimencam.cm",
+            "fabrice.ondoa@cimencam.cm",
+            "samuel.beleck@cimencam.cm",
+            "emmanuel.tchuenkam@cimencam.cm",
+            "joseph.ebanda@cimencam.cm",
+            "cedric.tamgno@cimencam.cm",
+            "boris.mballa@cimencam.cm",
+            "nathalie.kouam@cimencam.cm",
+            "christian.eyike@cimencam.cm",
+            "rodrigue.nguemo@cimencam.cm",
+            "arlette.bikoue@cimencam.cm",
+            "herve.kamga@cimencam.cm",
+            "yves.talla@cimencam.cm",
+            "sandrine.ebongue@cimencam.cm",
+            "eric.messina@cimencam.cm",
+            "collaborateur@holcim.cm",
+            "demo@holcim.cm",
+            "demo@cimencam.cm"
+        )
+
+        val DEMO_INCIDENT_TITLES = setOf(
+            "Fuite d'huile signalée",
+            "Obstruction issue de secours",
+            "Câble électrique dénudé"
+        )
+
+        val DEMO_NOTIFICATION_TITLES = setOf(
+            "Alerte Météo & Fortes Chaleurs",
+            "Nouvelle campagne lancée",
+            "Rappel Formation Travail en Hauteur"
+        )
+
+        fun isDemoUserEmail(email: String): Boolean {
+            return DEMO_USER_EMAILS.any { it.equals(email.trim(), ignoreCase = true) }
+        }
+
+        fun isDemoIncident(title: String, reportedBy: String = ""): Boolean {
+            val trimmedTitle = title.trim()
+            if (DEMO_INCIDENT_TITLES.any { it.equals(trimmedTitle, ignoreCase = true) }) return true
+            val trimmedReporter = reportedBy.trim()
+            if ((trimmedReporter.equals("Jean-Pierre MVONDO", ignoreCase = true) ||
+                 trimmedReporter.equals("Emmanuel BIYA", ignoreCase = true)) &&
+                trimmedTitle.isEmpty()
+            ) {
+                return true
+            }
+            return false
+        }
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(database: SupportSQLiteDatabase) {
@@ -58,6 +116,19 @@ abstract class AppDatabase : RoomDatabase() {
                             getInstance(context).seedInitialData()
                         }
                     }
+
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        super.onOpen(db)
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val dao = getInstance(context).hseDao()
+                                dao.deleteUsersByEmails(DEMO_USER_EMAILS.toList())
+                                dao.deleteIncidentsByTitles(DEMO_INCIDENT_TITLES.toList())
+                                dao.deleteNotificationsByTitles(DEMO_NOTIFICATION_TITLES.toList())
+                            } catch (_: Exception) {
+                            }
+                        }
+                    }
                 }).build()
                 INSTANCE = instance
                 instance
@@ -67,51 +138,12 @@ abstract class AppDatabase : RoomDatabase() {
 
     suspend fun seedInitialData() {
         val dao = hseDao()
-        // Incidents and procedures data seeding
-
-        // Seed default incidents matching screenshot
-        dao.insertIncident(
-            IncidentEntity(
-                title = "Fuite d'huile signalée",
-                category = "Environnement",
-                severity = "Majeur",
-                site = "Site Figuil",
-                location = "Atelier de maintenance • Site Figuil",
-                description = "Fuite d'huile hydraulique détectée sous le broyeur n°2. Risque de glissade et de pollution du sol. Zone balisée en attente d'intervention de l'équipe de nettoyage spécialisée.",
-                reportedBy = "Agent HSE",
-                timestampText = "Il y a 2h",
-                timestampMillis = System.currentTimeMillis() - 2 * 3600 * 1000,
-                status = "En cours"
-            )
-        )
-        dao.insertIncident(
-            IncidentEntity(
-                title = "Obstruction issue de secours",
-                category = "Sécurité",
-                severity = "Mineur",
-                site = "Site Bonabéri",
-                location = "Hangar de stockage Sacs",
-                description = "Palettes de ciment entreposées devant la porte d'évacuation Nord. Déplacement immédiat demandé.",
-                reportedBy = "Jean-Pierre MVONDO",
-                timestampText = "Hier",
-                timestampMillis = System.currentTimeMillis() - 24 * 3600 * 1000,
-                status = "En cours"
-            )
-        )
-        dao.insertIncident(
-            IncidentEntity(
-                title = "Câble électrique dénudé",
-                category = "Sécurité",
-                severity = "Critique",
-                site = "Site Nomayos",
-                location = "Poste de commande Ensachage",
-                description = "Gaine isolante endommagée sur l'alimentation du convoyeur. Consignation effectuée.",
-                reportedBy = "Emmanuel BIYA",
-                timestampText = "Il y a 2 jours",
-                timestampMillis = System.currentTimeMillis() - 48 * 3600 * 1000,
-                status = "En cours"
-            )
-        )
+        // Clean up any demo incidents or notifications so only real user activities are shown
+        try {
+            dao.deleteIncidentsByTitles(DEMO_INCIDENT_TITLES.toList())
+            dao.deleteNotificationsByTitles(DEMO_NOTIFICATION_TITLES.toList())
+        } catch (_: Exception) {
+        }
 
         // Seed 6 steps for each procedure (Fiches Réflexes)
         val accidentSteps = listOf(
@@ -249,38 +281,6 @@ abstract class AppDatabase : RoomDatabase() {
                     dateText = "15 sept. 2026",
                     description = "Sensibilisation à la réduction de l'empreinte carbone, valorisation des coproduits et zéro déchet."
                 )
-            )
-        )
-
-        // Seed Notifications
-        dao.insertNotification(
-            NotificationEntity(
-                title = "Alerte Météo & Fortes Chaleurs",
-                message = "Températures élevées prévues sur le site de Figuil (38°C). Pauses hydratation obligatoires toutes les heures.",
-                type = "Urgence",
-                timestampText = "Il y a 30m",
-                timestampMillis = System.currentTimeMillis() - 30 * 60 * 1000,
-                isRead = false
-            )
-        )
-        dao.insertNotification(
-            NotificationEntity(
-                title = "Nouvelle campagne lancée",
-                message = "Participez au sondage satisfaction T3 2026 pour faire remonter vos suggestions.",
-                type = "Information",
-                timestampText = "Il y a 3h",
-                timestampMillis = System.currentTimeMillis() - 3 * 3600 * 1000,
-                isRead = false
-            )
-        )
-        dao.insertNotification(
-            NotificationEntity(
-                title = "Rappel Formation Travail en Hauteur",
-                message = "La session du 4 août sur le site de Figuil dispose encore de places ouvertes.",
-                type = "Formation",
-                timestampText = "Hier",
-                timestampMillis = System.currentTimeMillis() - 24 * 3600 * 1000,
-                isRead = true
             )
         )
 
@@ -436,7 +436,7 @@ abstract class AppDatabase : RoomDatabase() {
             )
         )
 
-        // Seed 25 Users (Super Admin, Admins, Managers, Collaborateurs) matching screenshot Gest contenu 5
+        // Seed only the principal admin account (no demo accounts)
         dao.insertUsers(
             listOf(
                 UserEntity(
@@ -448,246 +448,6 @@ abstract class AppDatabase : RoomDatabase() {
                     phone = "+237 690 00 00 00",
                     avatarInitials = "JA",
                     status = "Actif"
-                ),
-                UserEntity(
-                    email = "admin@holcim.cm",
-                    name = "Administrateur Principal",
-                    role = "Admin",
-                    site = "Siège Douala",
-                    department = "Direction Générale",
-                    phone = "+237 690 00 00 01",
-                    avatarInitials = "AP",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "admin@cimencam.cm",
-                    name = "Marie Dupont",
-                    role = "Admin",
-                    site = "Bonabéri",
-                    department = "Direction",
-                    phone = "+237 690 00 00 02",
-                    avatarInitials = "MD",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "manager@holcim.cm",
-                    name = "Jean-Pierre Mvondo",
-                    role = "Manager",
-                    site = "Figuil",
-                    department = "Production Four",
-                    phone = "+237 690 00 00 03",
-                    avatarInitials = "JM",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "paulin.mbassi@cimencam.cm",
-                    name = "Paulin Mbassi",
-                    role = "Manager",
-                    site = "Bonabéri",
-                    department = "Direction Usine",
-                    phone = "+237 690 00 00 04",
-                    avatarInitials = "PM",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "marc.atangana@cimencam.cm",
-                    name = "Marc Atangana",
-                    role = "Manager",
-                    site = "Nomayos",
-                    department = "Maintenance Électrique",
-                    phone = "+237 690 00 00 05",
-                    avatarInitials = "MA",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "angeline.nkoa@cimencam.cm",
-                    name = "Dr. Angeline Nkoa",
-                    role = "Manager",
-                    site = "Tous sites",
-                    department = "Santé au Travail",
-                    phone = "+237 690 00 00 06",
-                    avatarInitials = "AN",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "oumarou.sali@cimencam.cm",
-                    name = "Cdt. Oumarou Sali",
-                    role = "Manager",
-                    site = "Figuil",
-                    department = "Sécurité Incendie",
-                    phone = "+237 690 00 00 07",
-                    avatarInitials = "OS",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "abeissajean66@gmail.com",
-                    name = "Jean Abeissa",
-                    role = "Collaborateur",
-                    site = "Figuil",
-                    department = "Sécurité Industrielle",
-                    phone = "+237 699 12 34 56",
-                    avatarInitials = "JA",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "alain.mbarga@cimencam.cm",
-                    name = "Alain Mbarga",
-                    role = "Collaborateur",
-                    site = "Bonabéri",
-                    department = "Environnement",
-                    phone = "+237 691 22 33 44",
-                    avatarInitials = "AM",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "emmanuel.biya@cimencam.cm",
-                    name = "Emmanuel Biya",
-                    role = "Collaborateur",
-                    site = "Nomayos",
-                    department = "Ensachage",
-                    phone = "+237 692 33 44 55",
-                    avatarInitials = "EB",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "fabrice.ondoa@cimencam.cm",
-                    name = "Fabrice Ondoa",
-                    role = "Collaborateur",
-                    site = "Nomayos",
-                    department = "Maintenance",
-                    phone = "+237 693 44 55 66",
-                    avatarInitials = "FO",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "samuel.beleck@cimencam.cm",
-                    name = "Samuel Beleck",
-                    role = "Collaborateur",
-                    site = "Figuil",
-                    department = "Carrière",
-                    phone = "+237 694 55 66 77",
-                    avatarInitials = "SB",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "emmanuel.tchuenkam@cimencam.cm",
-                    name = "Emmanuel Tchuenkam",
-                    role = "Collaborateur",
-                    site = "Bonabéri",
-                    department = "Broyeur",
-                    phone = "+237 695 66 77 88",
-                    avatarInitials = "ET",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "joseph.ebanda@cimencam.cm",
-                    name = "Joseph Ebanda",
-                    role = "Collaborateur",
-                    site = "Figuil",
-                    department = "Laboratoire Qualité",
-                    phone = "+237 696 77 88 99",
-                    avatarInitials = "JE",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "cedric.tamgno@cimencam.cm",
-                    name = "Cédric Tamgno",
-                    role = "Collaborateur",
-                    site = "Bonabéri",
-                    department = "Logistique & Expédition",
-                    phone = "+237 697 88 99 00",
-                    avatarInitials = "CT",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "boris.mballa@cimencam.cm",
-                    name = "Boris Mballa",
-                    role = "Collaborateur",
-                    site = "Nomayos",
-                    department = "Centrale Thermique",
-                    phone = "+237 698 99 00 11",
-                    avatarInitials = "BM",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "nathalie.kouam@cimencam.cm",
-                    name = "Nathalie Kouam",
-                    role = "Collaborateur",
-                    site = "Siège Douala",
-                    department = "Ressources Humaines",
-                    phone = "+237 699 00 11 22",
-                    avatarInitials = "NK",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "christian.eyike@cimencam.cm",
-                    name = "Christian Eyike",
-                    role = "Collaborateur",
-                    site = "Figuil",
-                    department = "Électromécanique",
-                    phone = "+237 670 11 22 33",
-                    avatarInitials = "CE",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "rodrigue.nguemo@cimencam.cm",
-                    name = "Rodrigue Nguemo",
-                    role = "Collaborateur",
-                    site = "Bonabéri",
-                    department = "Contrôle Commande",
-                    phone = "+237 671 22 33 44",
-                    avatarInitials = "RN",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "arlette.bikoue@cimencam.cm",
-                    name = "Arlette Bikoué",
-                    role = "Collaborateur",
-                    site = "Nomayos",
-                    department = "Approvisionnement",
-                    phone = "+237 672 33 44 55",
-                    avatarInitials = "AB",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "herve.kamga@cimencam.cm",
-                    name = "Hervé Kamga",
-                    role = "Collaborateur",
-                    site = "Figuil",
-                    department = "Concasseur",
-                    phone = "+237 673 44 55 66",
-                    avatarInitials = "HK",
-                    status = "Actif"
-                ),
-                UserEntity(
-                    email = "yves.talla@cimencam.cm",
-                    name = "Yves Talla",
-                    role = "Collaborateur",
-                    site = "Bonabéri",
-                    department = "Silos & Vrac",
-                    phone = "+237 674 55 66 77",
-                    avatarInitials = "YT",
-                    status = "En attente"
-                ),
-                UserEntity(
-                    email = "sandrine.ebongue@cimencam.cm",
-                    name = "Sandrine Ebongue",
-                    role = "Collaborateur",
-                    site = "Nomayos",
-                    department = "Qualité & Process",
-                    phone = "+237 675 66 77 88",
-                    avatarInitials = "SE",
-                    status = "En attente"
-                ),
-                UserEntity(
-                    email = "eric.messina@cimencam.cm",
-                    name = "Eric Messina",
-                    role = "Collaborateur",
-                    site = "Siège Douala",
-                    department = "Audit Interne",
-                    phone = "+237 676 77 88 99",
-                    avatarInitials = "EM",
-                    status = "Inactif"
                 )
             )
         )

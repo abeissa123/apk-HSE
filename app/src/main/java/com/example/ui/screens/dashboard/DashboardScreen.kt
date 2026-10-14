@@ -53,6 +53,8 @@ fun DashboardScreen(
     val activeUser = user?.takeIf { it.email.isNotBlank() } ?: authState.currentUser
     val realtimeWeather by viewModel.realtimeWeather.collectAsState()
     val incidents by viewModel.incidents.collectAsState()
+    val attestations by viewModel.allAttestations.collectAsState()
+    val notifications by viewModel.notifications.collectAsState()
     val pendingRisks by viewModel.pendingRisksCount.collectAsState()
     val unreadCount by viewModel.unreadNotificationsCount.collectAsState()
     val selectedSite by viewModel.selectedSite.collectAsState()
@@ -187,174 +189,7 @@ fun DashboardScreen(
                 )
             }
 
-            // 4. Actions Rapides Grid (2x2)
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Action 1: Signaler un incident
-                        QuickActionCard(
-                            title = "Signaler un\nincident",
-                            icon = Icons.Default.Shield,
-                            iconTint = HSEBlueLight,
-                            iconBg = HSEBluePrimary.copy(alpha = 0.15f),
-                            cardBg = HSECardBg,
-                            modifier = Modifier.weight(1f),
-                            onClick = { viewModel.isReportIncidentOpen.value = true },
-                            testTag = "action_report_incident"
-                        )
-
-                        // Action 2: Appel SOS Urgence (Red highlight)
-                        QuickActionCard(
-                            title = "Appel SOS\nUrgence",
-                            icon = Icons.Default.Call,
-                            iconTint = Color.White,
-                            iconBg = Color.White.copy(alpha = 0.25f),
-                            cardBg = HSERedUrgent,
-                            modifier = Modifier.weight(1f),
-                            onClick = { viewModel.isSosSheetOpen.value = true },
-                            testTag = "action_sos_call",
-                            isUrgent = true
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Action 3: Audit de sécurité
-                        QuickActionCard(
-                            title = "Audit de sécurité",
-                            icon = Icons.Default.AssignmentTurnedIn,
-                            iconTint = HSEGreenSafe,
-                            iconBg = HSEGreenSafe.copy(alpha = 0.15f),
-                            cardBg = HSECardBg,
-                            modifier = Modifier.weight(1f),
-                            onClick = { viewModel.isSafetyAuditOpen.value = true },
-                            testTag = "action_safety_audit"
-                        )
-
-                        // Action 4: Checklist EPI
-                        QuickActionCard(
-                            title = "Checklist EPI",
-                            icon = Icons.Default.Engineering,
-                            iconTint = HSEBlueLight,
-                            iconBg = HSEBluePrimary.copy(alpha = 0.15f),
-                            cardBg = HSECardBg,
-                            modifier = Modifier.weight(1f),
-                            onClick = { viewModel.isChecklistEpiOpen.value = true },
-                            testTag = "action_checklist_epi"
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // IA Copilot Hero Interactive Banner
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .clickable { viewModel.openHseIa() }
-                        .testTag("dashboard_hse_ia_banner"),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF0F2238)
-                    ),
-                    border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.4f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF0284C7), Color(0xFF059669), Color(0xFF10B981))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.AutoAwesome,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Assistant IA Polyvalent",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    color = Color(0xFF059669).copy(alpha = 0.25f),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = "AI 2.5",
-                                        color = Color(0xFF34D399),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 9.sp,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Réponses à vos questions, aide à la rédaction, analyse et discussion.",
-                                color = HSETextSecondary,
-                                fontSize = 11.5.sp,
-                                maxLines = 2,
-                                lineHeight = 16.sp
-                            )
-                        }
-
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Ouvrir IA",
-                            tint = Color(0xFF38BDF8),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(20.dp))
-            }
-
-            // 5. Indicateurs de sécurité Header
-            item {
-                Text(
-                    text = "Indicateurs de sécurité",
-
-                    color = HSETextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                )
-            }
-
-            // 6. Indicateurs Row (Jours sans accident & Risques en attente)
+            // 4. Actions Rapides Grid (Gants & terrain: gros boutons contrastés)
             item {
                 Row(
                     modifier = Modifier
@@ -362,162 +197,38 @@ fun DashboardScreen(
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // KPI 1: Jours sans accident
-                    Card(
+                    // Action 1: Signaler un incident (Accent Orange sécurité #F57C00)
+                    QuickActionCard(
+                        title = "⚠ Signaler un\nincident",
+                        icon = Icons.Default.Warning,
+                        iconTint = Color.White,
+                        iconBg = Color.White.copy(alpha = 0.25f),
+                        cardBg = HSEOrangeAlert,
+                        textColor = Color.White,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = HSECardBg),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(HSEGreenSafe.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = HSEGreenSafe,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "Jours sans accident",
-                                color = HSETextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "47",
-                                color = HSEGreenSafe,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                        onClick = { viewModel.isReportIncidentOpen.value = true },
+                        testTag = "action_report_incident",
+                        isUrgent = true
+                    )
 
-                    // KPI 2: Risques en attente
-                    Card(
+                    // Action 2: Appel SOS Urgence (Rouge Danger/Urgence #D32F2F)
+                    QuickActionCard(
+                        title = "✖ Appel SOS\nUrgence",
+                        icon = Icons.Default.Call,
+                        iconTint = Color.White,
+                        iconBg = Color.White.copy(alpha = 0.25f),
+                        cardBg = HSERedUrgent,
+                        textColor = Color.White,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = HSECardBg),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(HSERedUrgent.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = HSERedUrgent,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "Risques en attente",
-                                color = HSETextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                color = HSERedUrgent,
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "$pendingRisks",
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
+                        onClick = { viewModel.isSosSheetOpen.value = true },
+                        testTag = "action_sos_call",
+                        isUrgent = true
+                    )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // 7. KPI 3: Formations complétées
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = HSECardBg)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(HSEBluePrimary.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.TrendingUp,
-                                    contentDescription = null,
-                                    tint = HSEBlueLight,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Formations complétées",
-                                    color = HSETextSecondary,
-                                    fontSize = 12.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "18 / 24",
-                                    color = HSEBlueLight,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        // Progress Bar (75%)
-                        Box(
-                            modifier = Modifier
-                                .width(90.dp)
-                                .height(8.dp)
-                                .background(HSECardElevated, RoundedCornerShape(4.dp))
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(0.75f)
-                                    .background(HSEBluePrimary, RoundedCornerShape(4.dp))
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // 8. Activité Récente Header with "Tout voir"
+            // 8. Activités Récentes Header with "Tout voir" & Real-time Firebase Badge
             item {
                 Row(
                     modifier = Modifier
@@ -526,12 +237,20 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Activité récente",
-                        color = HSETextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "Activités récentes",
+                            color = HSETextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Synchronisées en temps réel sur Firebase pour tous les utilisateurs",
+                            color = HSEGreenSafe,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     Text(
                         text = "Tout voir",
                         color = HSEBlueLight,
@@ -544,30 +263,174 @@ fun DashboardScreen(
                 }
             }
 
-            // 9. Incidents list
-            val displayIncidents = incidents.take(3)
-            if (displayIncidents.isEmpty()) {
+            // 9. User-reported Incidents & Real-Time User Activities (No Demos)
+            val displayIncidents = incidents.take(5)
+            val recentAttestations = attestations.take(3)
+            val recentActivityNotifications = notifications
+                .filter { !it.title.contains("Nouvel Incident", ignoreCase = true) }
+                .take(3)
+
+            if (displayIncidents.isEmpty() && recentAttestations.isEmpty() && recentActivityNotifications.isEmpty()) {
                 item {
-                    Text(
-                        text = "Aucune activité récente enregistrée.",
-                        color = HSETextMuted,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+                        border = BorderStroke(1.dp, HSECardBorder)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                tint = HSEGreenSafe,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Aucune activité ou signalement pour le moment.",
+                                color = HSETextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Les incidents signalés et les activités effectuées par les utilisateurs s'afficheront ici en temps réel sur tous les appareils via Firebase.",
+                                color = HSETextSecondary,
+                                fontSize = 12.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
                 }
             } else {
-                items(displayIncidents, key = { it.id }) { incident ->
+                // 9a. Real-time User Reported Incidents
+                items(displayIncidents, key = { "inc_${it.id}" }) { incident ->
                     IncidentCardItem(
                         incident = incident,
                         onClick = { showIncidentDetail = incident },
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                     )
                 }
+
+                // 9b. Real-time Document Attestations by Users
+                items(recentAttestations, key = { "att_${it.id}" }) { att ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 5.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+                        border = BorderStroke(1.dp, HSECardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(HSEGreenSafe.copy(alpha = 0.14f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = null,
+                                    tint = HSEGreenSafe,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "✔ Lecture certifiée : ${att.documentTitle}",
+                                    color = HSETextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Par ${att.userName} (${att.userSite}) • ${att.timestampText}",
+                                    color = HSETextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 9c. Other Real-time User Activities (Trainings, Audits, Stories, Account actions)
+                items(recentActivityNotifications, key = { "act_${it.id}" }) { notif ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 5.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+                        border = BorderStroke(1.dp, HSECardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(HSEBluePrimary.copy(alpha = 0.14f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Bolt,
+                                    contentDescription = null,
+                                    tint = HSEBluePrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = notif.title,
+                                    color = HSETextPrimary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = notif.message,
+                                    color = HSETextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Incident Detail Dialog
+        // Incident Detail Dialog with Real-Time Status Update & Deletion
         showIncidentDetail?.let { incident ->
+            val sevIcon = when (incident.severity) {
+                "Critique" -> "✖"
+                "Élevé", "Majeur" -> "⚠"
+                "Moyen", "Modéré" -> "⚠"
+                else -> "✔"
+            }
             AlertDialog(
                 onDismissRequest = { showIncidentDetail = null },
                 containerColor = HSECardBg,
@@ -576,24 +439,26 @@ fun DashboardScreen(
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
-                                .background(HSERedUrgent.copy(alpha = 0.2f), CircleShape),
+                                .background(HSERedUrgent.copy(alpha = 0.15f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Default.Warning, contentDescription = null, tint = HSERedUrgent, modifier = Modifier.size(18.dp))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(incident.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(incident.title, color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Site / Lieu : ${incident.location}", color = HSEBlueLight, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Gravité : ${incident.severity} | Catégorie : ${incident.category}", color = HSETextSecondary, fontSize = 12.sp)
+                        Text("Gravité : $sevIcon ${incident.severity} | Catégorie : ${incident.category}", color = HSETextSecondary, fontSize = 12.sp)
+                        Text("Statut actuel : ${incident.status}", color = if (incident.status == "Résolu") HSEGreenSafe else HSEOrangeAlert, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Signalé par : ${incident.reportedBy} (${incident.timestampText})", color = HSETextMuted, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(6.dp))
                         Surface(
                             color = HSEFieldBg,
                             shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, HSECardBorder),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
@@ -603,6 +468,38 @@ fun DashboardScreen(
                                 modifier = Modifier.padding(12.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (incident.status != "Résolu") {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.updateIncidentStatus(incident.id, "Résolu")
+                                        showIncidentDetail = null
+                                    },
+                                    border = BorderStroke(1.dp, HSEGreenSafe),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = HSEGreenSafe),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("✔ Marquer Résolu", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (activeUser?.isAdmin == true || activeUser?.name == incident.reportedBy) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.deleteIncident(incident.id)
+                                        showIncidentDetail = null
+                                    },
+                                    border = BorderStroke(1.dp, HSERedUrgent),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = HSERedUrgent),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Supprimer", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 },
                 confirmButton = {
@@ -610,26 +507,36 @@ fun DashboardScreen(
                         onClick = { showIncidentDetail = null },
                         colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary)
                     ) {
-                        Text("Fermer")
+                        Text("Fermer", color = Color.White)
                     }
                 }
             )
         }
 
-        // All Incidents Modal
+        // All Incidents & User Activities Modal
         if (showAllIncidentsModal) {
             AlertDialog(
                 onDismissRequest = { showAllIncidentsModal = false },
                 containerColor = HSECardBg,
-                title = { Text("Tous les Incidents & Activités", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Activités & Incidents Utilisateurs (Temps réel)", color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
                 text = {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 400.dp),
+                            .heightIn(max = 420.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(incidents, key = { it.id }) { incident ->
+                        if (incidents.isEmpty() && attestations.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "Aucune activité utilisateur enregistrée.",
+                                    color = HSETextSecondary,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                        items(incidents, key = { "modal_inc_${it.id}" }) { incident ->
                             IncidentCardItem(
                                 incident = incident,
                                 onClick = {
@@ -638,11 +545,33 @@ fun DashboardScreen(
                                 }
                             )
                         }
+                        items(attestations, key = { "modal_att_${it.id}" }) { att ->
+                            Surface(
+                                color = HSEFieldBg,
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, HSECardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "✔ Lecture certifiée : ${att.documentTitle}",
+                                        color = HSETextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "${att.userName} (${att.userSite}) • ${att.timestampText}",
+                                        color = HSETextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = { showAllIncidentsModal = false }) {
-                        Text("Fermer", color = HSEBlueLight)
+                        Text("Fermer", color = HSEBluePrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -665,24 +594,6 @@ fun DashboardScreen(
                 onDismiss = { viewModel.isSosSheetOpen.value = false }
             )
         }
-
-        // Dialog: Safety Audit
-        if (isSafetyAuditOpen) {
-            SafetyAuditDialog(
-                currentSite = selectedSite,
-                onDismiss = { viewModel.isSafetyAuditOpen.value = false },
-                onSave = { site, score ->
-                    viewModel.saveSafetyAudit(site, score)
-                }
-            )
-        }
-
-        // Dialog: Checklist EPI
-        if (isChecklistEpiOpen) {
-            ChecklistEpiDialog(
-                onDismiss = { viewModel.isChecklistEpiOpen.value = false }
-            )
-        }
     }
 }
 
@@ -693,6 +604,7 @@ fun QuickActionCard(
     iconTint: Color,
     iconBg: Color,
     cardBg: Color,
+    textColor: Color = Color.White,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     testTag: String,
@@ -700,7 +612,7 @@ fun QuickActionCard(
 ) {
     Card(
         modifier = modifier
-            .height(96.dp)
+            .height(104.dp)
             .clickable(onClick = onClick)
             .testTag(testTag),
         shape = RoundedCornerShape(16.dp),
@@ -710,12 +622,12 @@ fun QuickActionCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(38.dp)
                     .background(iconBg, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -723,16 +635,16 @@ fun QuickActionCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             Text(
                 text = title,
-                color = Color.White,
-                fontSize = 13.sp,
+                color = textColor,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                lineHeight = 16.sp
+                lineHeight = 17.sp
             )
         }
     }
@@ -744,12 +656,26 @@ fun IncidentCardItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val sevColor = when {
+        incident.severity.contains("Critique", ignoreCase = true) -> HSERedUrgent      // #D32F2F
+        incident.severity.contains("Élevé", ignoreCase = true) || incident.severity.contains("Majeur", ignoreCase = true) -> HSEOrangeAlert // #F57C00
+        incident.severity.contains("Moyen", ignoreCase = true) || incident.severity.contains("Modéré", ignoreCase = true) -> HSEAmberElect  // #FBC02D
+        else -> HSEGreenSafe // Faible #2E7D32
+    }
+    val sevTextColor = if (sevColor == HSEAmberElect) HSETextPrimary else Color.White
+    val sevSymbol = when (sevColor) {
+        HSERedUrgent -> "✖"
+        HSEOrangeAlert, HSEAmberElect -> "⚠"
+        else -> "✔"
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = HSECardBg)
+        colors = CardDefaults.cardColors(containerColor = HSECardBg),
+        border = BorderStroke(1.dp, HSECardBorder)
     ) {
         Row(
             modifier = Modifier
@@ -765,31 +691,47 @@ fun IncidentCardItem(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(HSERedUrgent.copy(alpha = 0.15f), CircleShape),
+                        .background(sevColor.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = null,
-                        tint = HSERedUrgent,
+                        tint = sevColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = incident.title,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = incident.title,
+                            color = HSETextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Surface(
+                            color = sevColor,
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "$sevSymbol ${incident.severity}",
+                                color = sevTextColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = incident.location,
                         color = HSETextSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -800,7 +742,8 @@ fun IncidentCardItem(
                 Text(
                     text = incident.timestampText,
                     color = HSETextMuted,
-                    fontSize = 11.sp
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
@@ -826,13 +769,14 @@ fun ReportIncidentSheet(
 ) {
     var title by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Sécurité") }
-    var severity by remember { mutableStateOf("Majeur") }
+    var severity by remember { mutableStateOf("Élevé") }
     var site by remember { mutableStateOf(if (currentSite == "Tous sites") "Site Figuil" else currentSite) }
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
     val categories = listOf("Sécurité", "Santé", "Environnement", "Presqu'accident")
-    val severities = listOf("Critique", "Majeur", "Mineur")
+    // Matrice de risques : Faible #2E7D32 → Moyen #FBC02D → Élevé #F57C00 → Critique #D32F2F
+    val severities = listOf("Faible", "Moyen", "Élevé", "Critique")
     val sites = listOf("Site Figuil", "Site Bonabéri", "Site Nomayos")
 
     ModalBottomSheet(
@@ -847,8 +791,8 @@ fun ReportIncidentSheet(
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                text = "Signaler un incident",
-                color = Color.White,
+                text = "⚠ Signaler un incident",
+                color = HSETextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -869,10 +813,10 @@ fun ReportIncidentSheet(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = HSEFieldBg,
                     unfocusedContainerColor = HSEFieldBg,
-                    focusedBorderColor = HSEBlueLight,
+                    focusedBorderColor = HSEBluePrimary,
                     unfocusedBorderColor = HSECardBorder,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = HSETextPrimary,
+                    unfocusedTextColor = HSETextPrimary
                 ),
                 shape = RoundedCornerShape(10.dp)
             )
@@ -890,13 +834,14 @@ fun ReportIncidentSheet(
                     Surface(
                         color = if (isSelected) HSEBluePrimary else HSEFieldBg,
                         shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, if (isSelected) HSEBluePrimary else HSECardBorder),
                         modifier = Modifier
                             .weight(1f)
                             .clickable { site = s }
                     ) {
                         Text(
                             text = s.replace("Site ", ""),
-                            color = if (isSelected) Color.White else HSETextSecondary,
+                            color = if (isSelected) Color.White else HSETextPrimary,
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             modifier = Modifier.padding(vertical = 8.dp),
@@ -917,42 +862,51 @@ fun ReportIncidentSheet(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = HSEFieldBg,
                     unfocusedContainerColor = HSEFieldBg,
-                    focusedBorderColor = HSEBlueLight,
+                    focusedBorderColor = HSEBluePrimary,
                     unfocusedBorderColor = HSECardBorder,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = HSETextPrimary,
+                    unfocusedTextColor = HSETextPrimary
                 ),
                 shape = RoundedCornerShape(10.dp)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Severity selector
-            Text("Niveau de gravité", color = HSETextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            // Severity selector (Matrice de risques avec icônes et contraste optimal)
+            Text("Niveau de gravité (Matrice de risques)", color = HSETextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 severities.forEach { sev ->
                     val isSelected = severity == sev
                     val badgeColor = when (sev) {
-                        "Critique" -> HSERedUrgent
-                        "Majeur" -> HSEOrangeAlert
-                        else -> HSEGreenSafe
+                        "Critique" -> HSERedUrgent      // #D32F2F
+                        "Élevé" -> HSEOrangeAlert       // #F57C00
+                        "Moyen" -> HSEAmberElect        // #FBC02D
+                        else -> HSEGreenSafe            // #2E7D32 Faible
                     }
+                    val symbol = when (sev) {
+                        "Critique" -> "✖"
+                        "Élevé", "Moyen" -> "⚠"
+                        else -> "✔"
+                    }
+                    // Texte noir sur jaune #FBC02D et blanc sur rouge, vert, orange
+                    val selectedTextColor = if (sev == "Moyen") HSETextPrimary else Color.White
                     Surface(
                         color = if (isSelected) badgeColor else HSEFieldBg,
                         shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, if (isSelected) badgeColor else HSECardBorder),
                         modifier = Modifier
                             .weight(1f)
                             .clickable { severity = sev }
                     ) {
                         Text(
-                            text = sev,
-                            color = if (isSelected) Color.White else HSETextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            text = "$symbol $sev",
+                            color = if (isSelected) selectedTextColor else HSETextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.padding(vertical = 10.dp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -961,24 +915,31 @@ fun ReportIncidentSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Category selector
-            Text("Catégorie", color = HSETextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            // Category selector (Correspondance par domaine)
+            Text("Catégorie / Domaine", color = HSETextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 categories.forEach { cat ->
                     val isSelected = category == cat
+                    val domainColor = when (cat) {
+                        "Santé" -> HSEHealthBlue
+                        "Sécurité" -> HSEOrangeAlert
+                        "Environnement" -> HSEEnvGreen
+                        else -> HSEBluePrimary
+                    }
                     Surface(
-                        color = if (isSelected) HSEBluePrimary else HSEFieldBg,
+                        color = if (isSelected) domainColor else HSEFieldBg,
                         shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, if (isSelected) domainColor else HSECardBorder),
                         modifier = Modifier
                             .weight(1f)
                             .clickable { category = cat }
                     ) {
                         Text(
                             text = cat,
-                            color = if (isSelected) Color.White else HSETextSecondary,
+                            color = if (isSelected) Color.White else HSETextPrimary,
                             fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             modifier = Modifier.padding(vertical = 8.dp),
@@ -999,17 +960,17 @@ fun ReportIncidentSheet(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = HSEFieldBg,
                     unfocusedContainerColor = HSEFieldBg,
-                    focusedBorderColor = HSEBlueLight,
+                    focusedBorderColor = HSEBluePrimary,
                     unfocusedBorderColor = HSECardBorder,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = HSETextPrimary,
+                    unfocusedTextColor = HSETextPrimary
                 ),
                 shape = RoundedCornerShape(10.dp)
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Submit Button
+            // Submit Button (Accent Orange sécurité #F57C00 - Gros bouton pour gants et terrain)
             Button(
                 onClick = {
                     if (title.isNotBlank() && location.isNotBlank()) {
@@ -1019,12 +980,12 @@ fun ReportIncidentSheet(
                 enabled = title.isNotBlank() && location.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .height(52.dp)
                     .testTag("submit_incident_button"),
-                colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary),
-                shape = RoundedCornerShape(10.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = HSEOrangeAlert),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Transmettre le signalement", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("⚠ Transmettre le signalement", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1064,7 +1025,7 @@ fun SosEmergencySheet(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Appel SOS & Numéros d'Urgence", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("✖ Appel SOS & Numéros d'Urgence", color = HSETextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Text("Lignes d'assistance prioritaires 24h/24", color = HSETextSecondary, fontSize = 12.sp)
                 }
             }
@@ -1073,12 +1034,13 @@ fun SosEmergencySheet(
 
             callDialedMessage?.let { msg ->
                 Surface(
-                    color = HSEGreenSafe.copy(alpha = 0.2f),
+                    color = HSEEnvBg,
                     shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, HSEGreenSafe),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                 ) {
                     Text(
-                        text = msg,
+                        text = "✔ $msg",
                         color = HSEGreenSafe,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -1089,7 +1051,7 @@ fun SosEmergencySheet(
 
             // Quick Call Cards
             EmergencyCallButton(
-                title = "Urgence — Infirmerie Interne",
+                title = "✖ Urgence — Infirmerie Interne",
                 phone = "Poste 100",
                 desc = "Médecin du travail et premiers secours",
                 color = HSERedUrgent,
@@ -1099,7 +1061,7 @@ fun SosEmergencySheet(
             Spacer(modifier = Modifier.height(10.dp))
 
             EmergencyCallButton(
-                title = "Poste de Garde & Sécurité Usine",
+                title = "⚠ Poste de Garde & Sécurité Usine",
                 phone = "Poste 112",
                 desc = "Contrôle d'accès et alarme générale",
                 color = HSEOrangeAlert,
@@ -1109,10 +1071,10 @@ fun SosEmergencySheet(
             Spacer(modifier = Modifier.height(10.dp))
 
             EmergencyCallButton(
-                title = "Sapeurs-Pompiers & Secours Externes",
+                title = "✖ Sapeurs-Pompiers & Secours Externes",
                 phone = "118 / +237 222 22 22 22",
                 desc = "Intervention incendie et désincarcération",
-                color = HSERedDark,
+                color = HSERedUrgent,
                 onClick = { callDialedMessage = "Numérotation des Sapeurs-Pompiers (118)..." }
             )
 
@@ -1131,9 +1093,9 @@ fun SosEmergencySheet(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = HSEFieldBg),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
-                Text("Fermer", color = HSETextSecondary)
+                Text("Fermer", color = HSETextPrimary, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1154,190 +1116,34 @@ private fun EmergencyCallButton(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = HSEFieldBg)
+        colors = CardDefaults.cardColors(containerColor = HSEFieldBg),
+        border = BorderStroke(1.dp, HSECardBorder)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(text = desc, color = HSETextMuted, fontSize = 11.sp)
+                Text(text = title, color = HSETextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(text = desc, color = HSETextSecondary, fontSize = 11.sp)
             }
 
             Surface(
                 color = color,
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(phone, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Text(phone, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
     }
-}
-
-// -------------------------------------------------------------
-// Dialog: Safety Audit
-// -------------------------------------------------------------
-@Composable
-fun SafetyAuditDialog(
-    currentSite: String,
-    onDismiss: () -> Unit,
-    onSave: (site: String, score: Int) -> Unit
-) {
-    var checkPpe by remember { mutableStateOf(true) }
-    var checkFire by remember { mutableStateOf(true) }
-    var checkExits by remember { mutableStateOf(true) }
-    var checkChems by remember { mutableStateOf(false) }
-    var checkElec by remember { mutableStateOf(true) }
-
-    val checkedCount = listOf(checkPpe, checkFire, checkExits, checkChems, checkElec).count { it }
-    val score = (checkedCount * 100) / 5
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = HSECardBg,
-        title = {
-            Text("Audit Flash Sécurité Terrain", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text("Vérification de conformité 5 points sur $currentSite", color = HSETextSecondary, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(14.dp))
-
-                AuditCheckItem("1. Port effectif des EPI complets", checkPpe) { checkPpe = it }
-                AuditCheckItem("2. Extincteurs vérifiés et accessibles", checkFire) { checkFire = it }
-                AuditCheckItem("3. Issues de secours 100% dégagées", checkExits) { checkExits = it }
-                AuditCheckItem("4. Stockage produits chimiques conforme (bacs rétention)", checkChems) { checkChems = it }
-                AuditCheckItem("5. Armoires électriques cadenassées & balisées", checkElec) { checkElec = it }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Surface(
-                    color = if (score >= 80) HSEGreenSafe.copy(alpha = 0.2f) else HSEOrangeAlert.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Score de Conformité :", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text("$score %", color = if (score >= 80) HSEGreenSafe else HSEOrangeAlert, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSave(currentSite, score) },
-                colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary)
-            ) {
-                Text("Enregistrer l'audit")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler", color = HSETextSecondary)
-            }
-        }
-    )
-}
-
-@Composable
-private fun AuditCheckItem(text: String, isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!isChecked) }
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(
-            checked = isChecked,
-            onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(
-                checkedColor = HSEBluePrimary,
-                uncheckedColor = HSETextSecondary,
-                checkmarkColor = Color.White
-            )
-        )
-        Text(text = text, color = HSETextPrimary, fontSize = 12.sp)
-    }
-}
-
-// -------------------------------------------------------------
-// Dialog: Checklist EPI
-// -------------------------------------------------------------
-@Composable
-fun ChecklistEpiDialog(
-    onDismiss: () -> Unit
-) {
-    var ppeHelmet by remember { mutableStateOf(true) }
-    var ppeShoes by remember { mutableStateOf(true) }
-    var ppeGlasses by remember { mutableStateOf(true) }
-    var ppeVest by remember { mutableStateOf(true) }
-    var ppeGloves by remember { mutableStateOf(true) }
-    var ppeEars by remember { mutableStateOf(false) }
-
-    val allRequired = ppeHelmet && ppeShoes && ppeGlasses && ppeVest && ppeGloves
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = HSECardBg,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Engineering, contentDescription = null, tint = HSEBlueLight)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Checklist EPI Quotidienne", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text("Équipements de Protection Individuelle obligatoires avant prise de poste", color = HSETextSecondary, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                AuditCheckItem("Casque de sécurité avec jugulaire", ppeHelmet) { ppeHelmet = it }
-                AuditCheckItem("Chaussures de sécurité S3 coquées", ppeShoes) { ppeShoes = it }
-                AuditCheckItem("Lunettes de protection anti-impact", ppeGlasses) { ppeGlasses = it }
-                AuditCheckItem("Gilet haute visibilité fluo avec bandes", ppeVest) { ppeVest = it }
-                AuditCheckItem("Gants de manutention adaptés", ppeGloves) { ppeGloves = it }
-                AuditCheckItem("Bouchons / Casque anti-bruit (zones > 80dB)", ppeEars) { ppeEars = it }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Surface(
-                    color = if (allRequired) HSEGreenSafe.copy(alpha = 0.2f) else HSERedUrgent.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (allRequired) "Conforme : Vous êtes autorisé(e) à entrer en zone industrielle." else "Non conforme : Complétez vos EPI obligatoires avant d'accéder au site.",
-                        color = if (allRequired) HSEGreenSafe else HSERedUrgent,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary)
-            ) {
-                Text("Valider la checklist")
-            }
-        }
-    )
 }

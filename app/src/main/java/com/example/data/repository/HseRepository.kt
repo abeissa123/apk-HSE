@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import android.util.Log
+import com.example.data.db.AppDatabase
 import com.example.data.db.HseDao
 import com.example.data.entity.*
 import com.google.firebase.firestore.FirebaseFirestore
@@ -9,6 +10,7 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -24,6 +26,8 @@ class HseRepository(
         private const val COLLECTION_SURVEYS = "hse_surveys"
         private const val COLLECTION_STORIES = "hse_stories"
         private const val COLLECTION_NOTIFICATIONS = "hse_notifications"
+        private const val COLLECTION_ATTESTATIONS = "hse_attestations"
+        private const val COLLECTION_TRAININGS = "hse_trainings"
     }
 
     private var auditsListener: ListenerRegistration? = null
@@ -32,6 +36,8 @@ class HseRepository(
     private var usersListener: ListenerRegistration? = null
     private var surveysListener: ListenerRegistration? = null
     private var notificationsListener: ListenerRegistration? = null
+    private var attestationsListener: ListenerRegistration? = null
+    private var trainingsListener: ListenerRegistration? = null
 
     private fun getFirestore(): FirebaseFirestore? {
         return try {
@@ -43,7 +49,9 @@ class HseRepository(
     }
 
     val user: Flow<UserEntity?> = dao.getUser()
-    val allUsers: Flow<List<UserEntity>> = dao.getAllUsers()
+    val allUsers: Flow<List<UserEntity>> = dao.getAllUsers().map { users ->
+        users.filterNot { AppDatabase.isDemoUserEmail(it.email) }
+    }
     val allContents: Flow<List<ContentEntity>> = dao.getAllContents()
     val allAttestations: Flow<List<DocumentAttestationEntity>> = dao.getAllAttestations()
     val certifiedAttestationsCount: Flow<Int> = dao.getCertifiedAttestationsCount()
@@ -57,8 +65,14 @@ class HseRepository(
     suspend fun fetchUserFromFirestore(email: String): UserEntity? {
         try {
             val firestore = getFirestore() ?: return null
-            val docKey = email.replace(".", "_").replace("@", "_at_")
-            val doc = firestore.collection(COLLECTION_USERS).document(docKey).get().await()
+            val docKey = email.trim().lowercase().replace(".", "_").replace("@", "_at_")
+            var doc = firestore.collection(COLLECTION_USERS).document(docKey).get().await()
+            if (!doc.exists()) {
+                val rawKey = email.trim().replace(".", "_").replace("@", "_at_")
+                if (rawKey != docKey) {
+                    doc = firestore.collection(COLLECTION_USERS).document(rawKey).get().await()
+                }
+            }
             if (doc.exists()) {
                 val name = doc.getString("name") ?: ""
                 val role = doc.getString("role") ?: "Collaborateur"
@@ -68,9 +82,15 @@ class HseRepository(
                 val pushNotificationsEnabled = doc.getBoolean("pushNotificationsEnabled") ?: true
                 val mfaEnabled = doc.getBoolean("mfaEnabled") ?: true
                 val department = doc.getString("department") ?: "Sécurité Industrielle"
-                val status = doc.getString("status") ?: "Actif"
+                val rawStatus = doc.getString("status") ?: "Actif"
+                val status = if (rawStatus.equals("En attente", ignoreCase = true)) "Actif" else rawStatus
                 val isOnline = doc.getBoolean("isOnline") ?: false
                 val lastActive = doc.getLong("lastActiveMillis") ?: System.currentTimeMillis()
+                val password = doc.getString("password") ?: ""
+                val firebaseUid = doc.getString("firebaseUid") ?: ""
+                val authSynced = doc.getBoolean("authSynced") ?: true
+                val resetRequested = doc.getBoolean("resetRequested") ?: false
+                val resetRequestNote = doc.getString("resetRequestNote") ?: ""
 
                 val initials = if (avatarInitials.isNotBlank()) avatarInitials else {
                     name.split(" ")
@@ -81,6 +101,7 @@ class HseRepository(
                         .ifEmpty { "UT" }
                 }
 
+                val existingLocal = dao.getUserDirect(email)
                 val userEntity = UserEntity(
                     email = email,
                     name = if (name.isNotBlank()) name else email.substringBefore("@"),
@@ -93,7 +114,12 @@ class HseRepository(
                     department = department,
                     status = status,
                     isOnline = isOnline,
-                    lastActiveMillis = lastActive
+                    lastActiveMillis = lastActive,
+                    password = password.ifBlank { existingLocal?.password ?: "" },
+                    firebaseUid = firebaseUid.ifBlank { existingLocal?.firebaseUid ?: "" },
+                    authSynced = authSynced,
+                    resetRequested = resetRequested,
+                    resetRequestNote = resetRequestNote
                 )
                 dao.insertUser(userEntity)
                 return userEntity
@@ -107,7 +133,9 @@ class HseRepository(
     val pendingRisksCount: Flow<Int> = incidentRepository.pendingRisksCount
     val allTrainings: Flow<List<TrainingEntity>> = dao.getAllTrainings()
     val allEvents: Flow<List<EventEntity>> = dao.getAllEvents()
-    val allNotifications: Flow<List<NotificationEntity>> = dao.getAllNotifications()
+    val allNotifications: Flow<List<NotificationEntity>> = dao.getAllNotifications().map { list ->
+        list.filterNot { AppDatabase.DEMO_NOTIFICATION_TITLES.contains(it.title) }
+    }
     val unreadCount: Flow<Int> = dao.getUnreadNotificationsCount()
     val allSurveys: Flow<List<SurveyEntity>> = dao.getAllSurveys()
     val allSuccessStories: Flow<List<SuccessStoryEntity>> = dao.getAllSuccessStories()
@@ -117,13 +145,138 @@ class HseRepository(
         dao.getProcedureSteps(procedureId)
 
     suspend fun insertUser(user: UserEntity) {
-        dao.insertUser(user)
-        syncUserToFirestore(user)
+        val existing = dao.getUserDirect(user.email)
+        val mergedUser = user.copy(
+            password = user.password.ifBlank { existing?.password ?: "" },
+            firebaseUid = user.firebaseUid.ifBlank { existing?.firebaseUid ?: "" }
+        )
+        dao.insertUser(mergedUser)
+        syncUserToFirestore(mergedUser)
     }
 
     suspend fun updateUser(user: UserEntity) {
-        dao.updateUser(user)
-        syncUserToFirestore(user)
+        val existing = dao.getUserDirect(user.email)
+        val mergedUser = user.copy(
+            password = user.password.ifBlank { existing?.password ?: "" },
+            firebaseUid = user.firebaseUid.ifBlank { existing?.firebaseUid ?: "" }
+        )
+        dao.updateUser(mergedUser)
+        syncUserToFirestore(mergedUser)
+    }
+
+    suspend fun updateUserPasswordAndSync(
+        email: String,
+        newPassword: String,
+        firebaseUid: String = "",
+        authSynced: Boolean = true
+    ) {
+        dao.updateUserPassword(email, newPassword, authSynced)
+        val existing = dao.getUserDirect(email)
+        if (existing != null) {
+            val updated = existing.copy(
+                password = newPassword,
+                firebaseUid = firebaseUid.ifBlank { existing.firebaseUid },
+                authSynced = authSynced,
+                resetRequested = false,
+                resetRequestNote = ""
+            )
+            dao.insertUser(updated)
+            syncUserToFirestore(updated)
+        } else {
+            try {
+                val firestore = getFirestore() ?: return
+                val docKey = email.trim().replace(".", "_").replace("@", "_at_")
+                val data = mutableMapOf<String, Any>(
+                    "password" to newPassword,
+                    "authSynced" to authSynced,
+                    "resetRequested" to false,
+                    "resetRequestNote" to ""
+                )
+                if (firebaseUid.isNotBlank()) {
+                    data["firebaseUid"] = firebaseUid
+                }
+                firestore.collection(COLLECTION_USERS).document(docKey)
+                    .set(data, SetOptions.merge())
+                    .await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to update user password in Firestore: ${e.message}")
+            }
+        }
+    }
+
+    suspend fun requestAccountOrPasswordRecovery(identifier: String, note: String): UserEntity? {
+        val query = identifier.trim()
+        var matchedUser: UserEntity? = null
+        try {
+            // 1. Check direct email match first
+            if (query.contains("@")) {
+                matchedUser = dao.getUserDirect(query) ?: fetchUserFromFirestore(query)
+            }
+            // 2. Search Firestore users by name, email, or phone if not matched yet
+            if (matchedUser == null) {
+                val firestore = getFirestore()
+                if (firestore != null) {
+                    val docs = firestore.collection(COLLECTION_USERS).get().await().documents
+                    for (doc in docs) {
+                        val docEmail = doc.getString("email") ?: continue
+                        val docName = doc.getString("name") ?: ""
+                        val docPhone = doc.getString("phone") ?: ""
+                        if (docEmail.equals(query, ignoreCase = true) ||
+                            docName.contains(query, ignoreCase = true) ||
+                            (docPhone.isNotBlank() && docPhone.replace(" ", "").contains(query.replace(" ", ""), ignoreCase = true))
+                        ) {
+                            matchedUser = fetchUserFromFirestore(docEmail)
+                            break
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error looking up user for recovery: ${e.message}")
+        }
+
+        val nowText = "Demande de récupération (${if (note.isNotBlank()) note else "Mot de passe / Compte oublié"})"
+        if (matchedUser != null) {
+            val updated = matchedUser.copy(
+                resetRequested = true,
+                resetRequestNote = nowText
+            )
+            dao.insertUser(updated)
+            syncUserToFirestore(updated)
+            broadcastNotification(
+                title = "🔑 Récupération Compte / MDP : ${matchedUser.name}",
+                message = "L'utilisateur ${matchedUser.name} (${matchedUser.email} • Tél: ${matchedUser.phone.ifBlank { "Non renseigné" }}) a signalé un oubli de compte ou mot de passe. Rendez-vous dans Gestion des Utilisateurs.",
+                type = "Urgence"
+            )
+            return updated
+        } else {
+            broadcastNotification(
+                title = "🔑 Assistance Compte / MDP oublié",
+                message = "Demande de récupération d'accès reçue pour l'identifiant \"$query\" ($note). Vérifiez dans Gestion des Utilisateurs.",
+                type = "Urgence"
+            )
+            return null
+        }
+    }
+
+    suspend fun clearAccountRecoveryRequest(email: String) {
+        val cleanEmail = email.trim().lowercase()
+        val existing = dao.getUserDirect(cleanEmail)
+        if (existing != null) {
+            val updated = existing.copy(resetRequested = false, resetRequestNote = "")
+            dao.insertUser(updated)
+            syncUserToFirestore(updated)
+        } else {
+            try {
+                val firestore = getFirestore() ?: return
+                val docKey = cleanEmail.replace(".", "_").replace("@", "_at_")
+                firestore.collection(COLLECTION_USERS).document(docKey)
+                    .set(mapOf("resetRequested" to false, "resetRequestNote" to ""), SetOptions.merge())
+                    .await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clear recovery request in Firestore: ${e.message}")
+            }
+        }
     }
 
     suspend fun setUserOnline(email: String, isOnline: Boolean) {
@@ -159,8 +312,17 @@ class HseRepository(
                 "department" to user.department,
                 "status" to user.status,
                 "isOnline" to user.isOnline,
-                "lastActiveMillis" to user.lastActiveMillis
+                "lastActiveMillis" to user.lastActiveMillis,
+                "authSynced" to user.authSynced,
+                "resetRequested" to user.resetRequested,
+                "resetRequestNote" to user.resetRequestNote
             )
+            if (user.password.isNotBlank()) {
+                data["password"] = user.password
+            }
+            if (user.firebaseUid.isNotBlank()) {
+                data["firebaseUid"] = user.firebaseUid
+            }
             val docKey = user.email.replace(".", "_").replace("@", "_at_")
             firestore.collection(COLLECTION_USERS).document(docKey)
                 .set(data, SetOptions.merge())
@@ -185,6 +347,18 @@ class HseRepository(
     suspend fun toggleTrainingEnrollment(trainingId: String, isCurrentlyEnrolled: Boolean) {
         val delta = if (isCurrentlyEnrolled) -1 else 1
         dao.updateEnrollment(trainingId, !isCurrentlyEnrolled, delta)
+        try {
+            val firestore = getFirestore() ?: return
+            val docRef = firestore.collection(COLLECTION_TRAININGS).document(trainingId)
+            firestore.runTransaction { tx ->
+                val snap = tx.get(docRef)
+                val currentCount = snap.getLong("enrolledCount")?.toInt() ?: 0
+                val newCount = (currentCount + delta).coerceAtLeast(0)
+                tx.set(docRef, mapOf("id" to trainingId, "enrolledCount" to newCount), SetOptions.merge())
+            }.await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync training enrollment to Firestore: ${e.message}")
+        }
     }
 
     suspend fun markNotificationAsRead(id: Long) = dao.markNotificationAsRead(id)
@@ -205,6 +379,20 @@ class HseRepository(
     suspend fun toggleStoryLike(storyId: String, isCurrentlyLiked: Boolean) {
         val delta = if (isCurrentlyLiked) -1 else 1
         dao.updateStoryLike(storyId, !isCurrentlyLiked, delta)
+        try {
+            val firestore = getFirestore() ?: return
+            val docRef = firestore.collection(COLLECTION_STORIES).document(storyId)
+            firestore.runTransaction { tx ->
+                val snap = tx.get(docRef)
+                if (snap.exists()) {
+                    val currentLikes = snap.getLong("likesCount")?.toInt() ?: 0
+                    val newLikes = (currentLikes + delta).coerceAtLeast(0)
+                    tx.update(docRef, mapOf("likesCount" to newLikes, "isLiked" to !isCurrentlyLiked))
+                }
+            }.await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync story like to Firestore: ${e.message}")
+        }
     }
 
     suspend fun saveSafetyAudit(audit: SafetyAuditEntity) {
@@ -441,28 +629,73 @@ class HseRepository(
         }
     }
 
+    suspend fun clearAllNotifications() {
+        dao.clearAllNotifications()
+        try {
+            val firestore = getFirestore() ?: return
+            val docs = firestore.collection(COLLECTION_NOTIFICATIONS).get().await().documents
+            for (doc in docs) {
+                doc.reference.delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to clear notifications from Firestore: ${e.message}")
+        }
+    }
+
     // Document Reading Attestations & Certification
     suspend fun recordDocumentAttestation(attestation: DocumentAttestationEntity): Long {
-        return dao.insertAttestation(attestation)
+        val uniqueId = if (attestation.id > 1000000L) attestation.id else System.currentTimeMillis()
+        val updated = attestation.copy(id = uniqueId, timestampMillis = uniqueId)
+        dao.insertAttestation(updated)
+        try {
+            val firestore = getFirestore()
+            val data = hashMapOf<String, Any>(
+                "id" to updated.id,
+                "documentId" to updated.documentId,
+                "documentTitle" to updated.documentTitle,
+                "documentReference" to updated.documentReference,
+                "userEmail" to updated.userEmail,
+                "userName" to updated.userName,
+                "userRole" to updated.userRole,
+                "userSite" to updated.userSite,
+                "timestampMillis" to updated.timestampMillis,
+                "timestampText" to updated.timestampText,
+                "isCertified" to updated.isCertified,
+                "certificateId" to updated.certificateId
+            )
+            firestore?.collection(COLLECTION_ATTESTATIONS)?.document("att_${updated.id}")
+                ?.set(data, SetOptions.merge())?.await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync attestation to Firestore: ${e.message}")
+        }
+        return uniqueId
     }
 
     suspend fun deleteAttestation(id: Long) {
         dao.deleteAttestation(id)
+        try {
+            val firestore = getFirestore() ?: return
+            firestore.collection(COLLECTION_ATTESTATIONS).document("att_$id").delete().await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete attestation from Firestore: ${e.message}")
+        }
     }
 
-    // Incident Admin Management
+    // Incident Admin Management (Synchronized with Firestore)
     suspend fun deleteIncident(incidentId: Long) {
-        dao.deleteIncident(incidentId)
+        incidentRepository.deleteIncident(incidentId)
     }
 
     // Broadcast Global Notifications & Emergency Alerts
     suspend fun broadcastNotification(title: String, message: String, type: String = "Information") {
+        val now = System.currentTimeMillis()
         val notification = NotificationEntity(
+            id = now,
             title = title,
             message = message,
             type = type,
             timestampText = "À l'instant",
-            timestampMillis = System.currentTimeMillis(),
+            timestampMillis = now,
             isRead = false
         )
         dao.insertNotification(notification)
@@ -476,15 +709,16 @@ class HseRepository(
                 "timestampText" to notification.timestampText,
                 "isRead" to false
             )
-            firestore.collection(COLLECTION_NOTIFICATIONS).add(data).await()
+            firestore.collection(COLLECTION_NOTIFICATIONS).document("notif_$now")
+                .set(data, SetOptions.merge()).await()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to sync notification to Firestore: ${e.message}")
         }
     }
 
     suspend fun sendApprovalNotification(userEmail: String, userName: String) {
-        val title = "Compte validé !"
-        val message = "Félicitations $userName, votre compte ($userEmail) a été approuvé par l'administrateur. Vous avez désormais un accès complet à l'application."
+        val title = "Compte actif !"
+        val message = "Le compte de $userName ($userEmail) est actif et synchronisé sur Firebase Auth."
         broadcastNotification(title = title, message = message, type = "Succès")
     }
 
@@ -550,7 +784,7 @@ class HseRepository(
             Log.w(TAG, "Could not start contents realtime sync: ${e.message}")
         }
 
-        // Real-time Users & Online Presence listener
+        // Real-time Users & Online Presence & Account Recovery listener
         try {
             val firestore = getFirestore() ?: return
             usersListener = firestore.collection(COLLECTION_USERS)
@@ -563,6 +797,13 @@ class HseRepository(
                         for (change in snapshots.documentChanges) {
                             val doc = change.document
                             val email = doc.getString("email") ?: continue
+                            if (AppDatabase.isDemoUserEmail(email)) {
+                                scope.launch {
+                                    dao.deleteUser(email)
+                                    try { doc.reference.delete() } catch (_: Exception) {}
+                                }
+                                continue
+                            }
                             when (change.type) {
                                 com.google.firebase.firestore.DocumentChange.Type.ADDED,
                                 com.google.firebase.firestore.DocumentChange.Type.MODIFIED -> {
@@ -574,25 +815,39 @@ class HseRepository(
                                     val push = doc.getBoolean("pushNotificationsEnabled") ?: true
                                     val mfa = doc.getBoolean("mfaEnabled") ?: true
                                     val dept = doc.getString("department") ?: "Sécurité Industrielle"
-                                    val status = doc.getString("status") ?: "Actif"
+                                    val rawStatus = doc.getString("status") ?: "Actif"
+                                    val status = if (rawStatus.equals("En attente", ignoreCase = true)) "Actif" else rawStatus
                                     val isOnline = doc.getBoolean("isOnline") ?: false
                                     val lastActive = doc.getLong("lastActiveMillis") ?: System.currentTimeMillis()
+                                    val password = doc.getString("password") ?: ""
+                                    val firebaseUid = doc.getString("firebaseUid") ?: ""
+                                    val authSynced = doc.getBoolean("authSynced") ?: true
+                                    val resetRequested = doc.getBoolean("resetRequested") ?: false
+                                    val resetRequestNote = doc.getString("resetRequestNote") ?: ""
 
-                                    val user = UserEntity(
-                                        email = email,
-                                        name = name,
-                                        role = role,
-                                        site = site,
-                                        phone = phone,
-                                        avatarInitials = initials,
-                                        pushNotificationsEnabled = push,
-                                        mfaEnabled = mfa,
-                                        department = dept,
-                                        status = status,
-                                        isOnline = isOnline,
-                                        lastActiveMillis = lastActive
-                                    )
-                                    scope.launch { dao.insertUser(user) }
+                                    scope.launch {
+                                        val existingLocal = dao.getUserDirect(email)
+                                        val user = UserEntity(
+                                            email = email,
+                                            name = name,
+                                            role = role,
+                                            site = site,
+                                            phone = phone,
+                                            avatarInitials = initials,
+                                            pushNotificationsEnabled = push,
+                                            mfaEnabled = mfa,
+                                            department = dept,
+                                            status = status,
+                                            isOnline = isOnline,
+                                            lastActiveMillis = lastActive,
+                                            password = password.ifBlank { existingLocal?.password ?: "" },
+                                            firebaseUid = firebaseUid.ifBlank { existingLocal?.firebaseUid ?: "" },
+                                            authSynced = authSynced,
+                                            resetRequested = resetRequested,
+                                            resetRequestNote = resetRequestNote
+                                        )
+                                        dao.insertUser(user)
+                                    }
                                 }
                                 com.google.firebase.firestore.DocumentChange.Type.REMOVED -> {
                                     scope.launch { dao.deleteUser(email) }
@@ -700,12 +955,20 @@ class HseRepository(
                         for (change in snapshots.documentChanges) {
                             val doc = change.document
                             val ts = doc.getLong("timestampMillis") ?: System.currentTimeMillis()
+                            val title = doc.getString("title") ?: ""
+                            if (AppDatabase.DEMO_NOTIFICATION_TITLES.contains(title)) {
+                                scope.launch {
+                                    dao.deleteNotification(ts)
+                                    try { doc.reference.delete() } catch (_: Exception) {}
+                                }
+                                continue
+                            }
                             when (change.type) {
                                 com.google.firebase.firestore.DocumentChange.Type.ADDED,
                                 com.google.firebase.firestore.DocumentChange.Type.MODIFIED -> {
                                     val notif = NotificationEntity(
                                         id = ts,
-                                        title = doc.getString("title") ?: "",
+                                        title = title,
                                         message = doc.getString("message") ?: "",
                                         type = doc.getString("type") ?: "Information",
                                         timestampText = doc.getString("timestampText") ?: "Récemment",
@@ -723,6 +986,49 @@ class HseRepository(
                 }
         } catch (e: Exception) {
             Log.w(TAG, "Could not start notifications realtime sync: ${e.message}")
+        }
+
+        // Real-time Document Attestations listener
+        try {
+            val firestore = getFirestore() ?: return
+            attestationsListener = firestore.collection(COLLECTION_ATTESTATIONS)
+                .addSnapshotListener { snapshots, error ->
+                    if (error != null) {
+                        Log.w(TAG, "Attestations listen error: ${error.message}")
+                        return@addSnapshotListener
+                    }
+                    if (snapshots != null) {
+                        for (change in snapshots.documentChanges) {
+                            val doc = change.document
+                            val id = doc.getLong("id") ?: doc.id.replace("att_", "").toLongOrNull() ?: continue
+                            when (change.type) {
+                                com.google.firebase.firestore.DocumentChange.Type.ADDED,
+                                com.google.firebase.firestore.DocumentChange.Type.MODIFIED -> {
+                                    val att = DocumentAttestationEntity(
+                                        id = id,
+                                        documentId = doc.getString("documentId") ?: "",
+                                        documentTitle = doc.getString("documentTitle") ?: "",
+                                        documentReference = doc.getString("documentReference") ?: "",
+                                        userEmail = doc.getString("userEmail") ?: "",
+                                        userName = doc.getString("userName") ?: "",
+                                        userRole = doc.getString("userRole") ?: "Collaborateur",
+                                        userSite = doc.getString("userSite") ?: "Site Figuil",
+                                        timestampMillis = doc.getLong("timestampMillis") ?: id,
+                                        timestampText = doc.getString("timestampText") ?: "Aujourd'hui",
+                                        isCertified = doc.getBoolean("isCertified") ?: true,
+                                        certificateId = doc.getString("certificateId") ?: ""
+                                    )
+                                    scope.launch { dao.insertAttestation(att) }
+                                }
+                                com.google.firebase.firestore.DocumentChange.Type.REMOVED -> {
+                                    scope.launch { dao.deleteAttestation(id) }
+                                }
+                            }
+                        }
+                    }
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not start attestations realtime sync: ${e.message}")
         }
 
         // Real-time Audits listener
@@ -774,5 +1080,9 @@ class HseRepository(
         surveysListener = null
         notificationsListener?.remove()
         notificationsListener = null
+        attestationsListener?.remove()
+        attestationsListener = null
+        trainingsListener?.remove()
+        trainingsListener = null
     }
 }

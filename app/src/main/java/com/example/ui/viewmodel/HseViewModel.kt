@@ -82,6 +82,7 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
     val isLogoutDialogOpen = MutableStateFlow(false)
     val isForgotPasswordOpen = MutableStateFlow(false)
     val isRegisterOpen = MutableStateFlow(false)
+    val isGoogleAccountPickerOpen = MutableStateFlow(false)
 
     // Admin Specific Dialogs & Screens
     val isAdminContentScreenOpen = MutableStateFlow(false)
@@ -120,6 +121,46 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
     val selectedIaImageUri = MutableStateFlow<Uri?>(null)
     val iaInputPrompt = MutableStateFlow("")
 
+    // Cloud File Server State & Synchronization
+    val b2ConnectionStatus = MutableStateFlow("Connecté au serveur documentaire sécurisé")
+    val isB2Syncing = MutableStateFlow(false)
+    val b2FilesList = MutableStateFlow<List<com.example.util.B2FileItem>>(emptyList())
+    val b2LastSyncMessage = MutableStateFlow<String?>(null)
+
+    fun syncB2Files(onComplete: ((com.example.util.B2SyncResult) -> Unit)? = null) {
+        viewModelScope.launch {
+            isB2Syncing.value = true
+            try {
+                val result = com.example.util.B2CloudStorageService.syncB2FilesToDatabase(
+                    repository = repository,
+                    context = getApplication()
+                )
+                b2FilesList.value = result.files
+                b2LastSyncMessage.value = result.message
+                b2ConnectionStatus.value = if (result.isSuccess) {
+                    "Connecté • ${result.syncedFilesCount} document(s) synchronisé(s) et accessible(s) à tous"
+                } else {
+                    "Statut serveur : ${result.message}"
+                }
+                onComplete?.invoke(result)
+            } catch (e: Exception) {
+                val msg = e.localizedMessage ?: e.message ?: "Information serveur"
+                b2ConnectionStatus.value = "Serveur : $msg"
+                b2LastSyncMessage.value = msg
+                onComplete?.invoke(com.example.util.B2SyncResult(false, msg))
+            } finally {
+                isB2Syncing.value = false
+            }
+        }
+    }
+
+    fun testB2Connection(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val res = com.example.util.B2CloudStorageService.testConnection()
+            onResult(res.first, res.second)
+        }
+    }
+
     init {
         authRepository = AuthRepository(application)
         val database = AppDatabase.getInstance(application)
@@ -131,18 +172,29 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val firebaseUser = authRepository.getCurrentUser()
                 if (firebaseUser != null) {
-                    val userEmail = firebaseUser.email ?: ""
-                    authState.value = authState.value.copy(
-                        isLoggedIn = true,
-                        emailInput = userEmail
-                    )
+                    val userEmail = (firebaseUser.email ?: "").trim().lowercase()
                     if (userEmail.isNotBlank()) {
                         val firestoreUser = repository.fetchUserFromFirestore(userEmail)
-                        if (firestoreUser != null) {
-                            authState.value = authState.value.copy(currentUser = firestoreUser)
-                            if (firestoreUser.site.isNotBlank()) {
-                                setSite(firestoreUser.site)
+                            ?: repository.getUserDirect(userEmail)
+                        if (firestoreUser != null && firestoreUser.status != "Suspendu" && firestoreUser.status != "Inactif") {
+                            val activeUser = if (firestoreUser.status != "Actif") {
+                                firestoreUser.copy(status = "Actif", isOnline = true, authSynced = true)
+                            } else {
+                                firestoreUser.copy(isOnline = true, authSynced = true)
                             }
+                            repository.insertUser(activeUser)
+                            repository.setUserOnline(userEmail, true)
+                            authState.value = authState.value.copy(
+                                isLoggedIn = true,
+                                emailInput = userEmail,
+                                currentUser = activeUser
+                            )
+                            if (activeUser.site.isNotBlank()) {
+                                setSite(activeUser.site)
+                            }
+                        } else {
+                            // Only registered and active users can stay connected
+                            authRepository.signOut()
                         }
                     }
                 }
@@ -188,7 +240,7 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
         certifiedAttestationsCount = repository.certifiedAttestationsCount.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
-            3
+            0
         )
 
         incidents = repository.allIncidents.stateIn(
@@ -200,7 +252,7 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
         pendingRisksCount = repository.pendingRisksCount.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
-            3
+            0
         )
 
         trainings = repository.allTrainings.stateIn(
@@ -224,7 +276,7 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
         unreadNotificationsCount = repository.unreadCount.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
-            2
+            0
         )
 
         surveys = repository.allSurveys.stateIn(
@@ -287,6 +339,8 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
                 // Seed fallback
             }
             repository.startRealtimeSync(viewModelScope)
+            // Synchronize cloud files from Backblaze B2 File Server on startup
+            syncB2Files()
         }
 
 
@@ -416,8 +470,15 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loginAsPrincipalAdmin() {
         viewModelScope.launch {
+            val adminEmail = "abeissajean66@gmail.com"
+            val adminPwd = "bouba jean"
+            val syncRes = authRepository.syncUserAccountWithFirebaseAuth(
+                email = adminEmail,
+                newPassword = adminPwd,
+                displayName = "Jean Abeissa (Admin Principal)"
+            )
             val adminUser = UserEntity(
-                email = "abeissajean66@gmail.com",
+                email = adminEmail,
                 name = "Jean Abeissa (Admin Principal)",
                 role = "Admin",
                 site = "Direction Générale (Tous sites)",
@@ -425,16 +486,21 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
                 phone = "+237 690 00 00 00",
                 avatarInitials = "JA",
                 status = "Actif",
-                isOnline = true
+                isOnline = true,
+                lastActiveMillis = System.currentTimeMillis(),
+                password = adminPwd,
+                firebaseUid = syncRes.getOrNull() ?: "",
+                authSynced = true
             )
+            authRepository.saveDeviceGoogleAccount(adminUser.email, adminUser.name)
             repository.insertUser(adminUser)
             repository.setUserOnline(adminUser.email, true)
             setSite("Direction Générale (Tous sites)")
             authState.value = authState.value.copy(
                 isLoggedIn = true,
                 currentUser = adminUser,
-                emailInput = "abeissajean66@gmail.com",
-                passwordInput = "bouba jean",
+                emailInput = adminEmail,
+                passwordInput = adminPwd,
                 isMfaStep = false,
                 isSubmitting = false,
                 authError = null
@@ -448,21 +514,20 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         viewModelScope.launch {
-            val u = repository.getUserDirect(email) ?: UserEntity(
-                email = email,
-                name = "Administrateur",
-                role = "Admin",
-                site = "Siège Douala",
-                department = "Direction Générale HSE",
-                avatarInitials = "AD",
-                status = "Actif",
-                isOnline = true
-            )
+            val u = repository.getUserDirect(email) ?: repository.fetchUserFromFirestore(email)
+            if (u == null) {
+                authState.value = authState.value.copy(
+                    authError = "Seuls les utilisateurs ayant créé un compte peuvent se connecter."
+                )
+                return@launch
+            }
+            val activeUser = u.copy(status = "Actif", isOnline = true, lastActiveMillis = System.currentTimeMillis())
+            repository.insertUser(activeUser)
             repository.setUserOnline(u.email, true)
             setSite(u.site.ifBlank { "Siège Douala" })
             authState.value = authState.value.copy(
                 isLoggedIn = true,
-                currentUser = u,
+                currentUser = activeUser,
                 isMfaStep = false,
                 isSubmitting = false,
                 authError = null
@@ -471,7 +536,7 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun login() {
-        val email = authState.value.emailInput.trim()
+        val email = authState.value.emailInput.trim().lowercase()
         val pwd = authState.value.passwordInput.trim()
 
         if (email.isEmpty() || pwd.isEmpty()) {
@@ -481,7 +546,7 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
 
         // Direct check for principal admin
         if (email.equals("abeissajean66@gmail.com", ignoreCase = true) &&
-            (pwd.equals("bouba jean", ignoreCase = true) || pwd.replace(" ", "").equals("boubajean", ignoreCase = true) || pwd.isNotEmpty())
+            (pwd.equals("bouba jean", ignoreCase = true) || pwd.replace(" ", "").equals("boubajean", ignoreCase = true))
         ) {
             loginAsPrincipalAdmin()
             return
@@ -498,44 +563,47 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        if (AppDatabase.isDemoUserEmail(email)) {
+            authState.value = authState.value.copy(
+                authError = "Les comptes de démonstration ne sont pas autorisés. Veuillez créer votre compte via 'S'inscrire'.",
+                authSuccess = null
+            )
+            return
+        }
+
         viewModelScope.launch {
             authState.value = authState.value.copy(isSubmitting = true, authError = null, authSuccess = null)
 
-            // 1. Check local Room database first for instant offline/admin login
+            // 1. Fetch registered user profile from Firestore and local Room database
+            val firestoreUser = try { repository.fetchUserFromFirestore(email) } catch (e: Exception) { null }
             val localUser = repository.getUserDirect(email)
-            if (localUser != null) {
-                if (localUser.status.equals("Bloqué", ignoreCase = true) || localUser.status.equals("Inactif", ignoreCase = true)) {
-                    authState.value = authState.value.copy(
-                        isLoggedIn = false,
-                        isSubmitting = false,
-                        authError = "Ce compte utilisateur a été désactivé ou bloqué par l'administrateur. Veuillez contacter la Direction."
-                    )
-                    return@launch
-                }
-                if (localUser.status.equals("En attente", ignoreCase = true)) {
-                    authState.value = authState.value.copy(
-                        isLoggedIn = false,
-                        isSubmitting = false,
-                        authError = "Votre compte est en attente d'approbation par l'administrateur. Vous recevrez une notification sur votre téléphone dès validation."
-                    )
-                    return@launch
-                }
-                if (localUser.role.equals("Admin", ignoreCase = true) || localUser.role.equals("Manager", ignoreCase = true) || email.startsWith("admin@")) {
-                    if (localUser.site.isNotBlank()) {
-                        setSite(localUser.site)
-                    }
-                    authState.value = authState.value.copy(
-                        isLoggedIn = true,
-                        currentUser = localUser,
-                        isMfaStep = false,
-                        isSubmitting = false,
-                        authError = null
-                    )
-                    return@launch
-                }
+            val existingUser = firestoreUser ?: localUser
+
+            // Check if account is blocked/inactive
+            if (existingUser != null && (existingUser.status.equals("Bloqué", ignoreCase = true) ||
+                        existingUser.status.equals("Suspendu", ignoreCase = true) ||
+                        existingUser.status.equals("Inactif", ignoreCase = true))
+            ) {
+                authState.value = authState.value.copy(
+                    isLoggedIn = false,
+                    isSubmitting = false,
+                    authError = "Ce compte utilisateur a été désactivé ou bloqué par l'administrateur. Veuillez contacter la Direction HSE."
+                )
+                return@launch
             }
 
-            // 2. Try Firebase Auth if configured
+            // 2. If user exists in Firestore/Room and entered the password saved/reset by Admin,
+            // ensure Firebase Auth is synchronized with this password first
+            if (existingUser != null && existingUser.password.isNotBlank() && existingUser.password == pwd) {
+                authRepository.syncUserAccountWithFirebaseAuth(
+                    email = email,
+                    newPassword = pwd,
+                    displayName = existingUser.name,
+                    previousPassword = existingUser.password
+                )
+            }
+
+            // 3. Authenticate with Firebase Auth
             val result = try {
                 authRepository.signInWithEmail(email, pwd)
             } catch (t: Throwable) {
@@ -543,107 +611,83 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             if (result.isSuccess) {
-                // Fetch user document from Firestore first
-                val firestoreUser = try { repository.fetchUserFromFirestore(email) } catch (e: Exception) { null }
-                val resolvedUser = if (firestoreUser != null) {
-                    firestoreUser
-                } else if (localUser != null) {
-                    localUser
-                } else {
-                    val firebaseUser = result.getOrNull()
-                    val displayName = firebaseUser?.displayName?.takeIf { it.isNotBlank() } ?: run {
-                        val emailPrefix = email.substringBefore("@")
-                        emailPrefix.replace(".", " ").split(" ")
-                            .filter { it.isNotBlank() }
-                            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercaseChar() } }
-                    }
-
-                    val initials = displayName.split(" ")
-                        .filter { it.isNotBlank() }
-                        .take(2)
-                        .map { it.first().uppercaseChar() }
-                        .joinToString("")
-                        .ifEmpty { "UT" }
-
-                    val u = UserEntity(
-                        name = displayName,
-                        email = email,
-                        avatarInitials = initials,
-                        role = "Collaborateur",
-                        site = "Site de Figuil",
-                        status = "En attente"
-                    )
-                    repository.insertUser(u)
-                    u
-                }
-
-                if (resolvedUser.status.equals("Bloqué", ignoreCase = true) || resolvedUser.status.equals("Inactif", ignoreCase = true)) {
+                val fbUser = result.getOrNull()
+                if (existingUser == null) {
+                    // Strict rule: Only users who have created a registered account in the app can connect
+                    authRepository.signOut()
                     authState.value = authState.value.copy(
                         isLoggedIn = false,
                         isSubmitting = false,
-                        authError = "Ce compte utilisateur a été désactivé ou bloqué par l'administrateur. Veuillez contacter la Direction."
+                        authError = "Aucun compte utilisateur enregistré pour $email. Seuls les utilisateurs ayant créé un compte via 'S'inscrire' peuvent se connecter."
                     )
                     return@launch
                 }
 
-                if (resolvedUser.status.equals("En attente", ignoreCase = true)) {
-                    authState.value = authState.value.copy(
-                        isLoggedIn = false,
-                        isSubmitting = false,
-                        authError = "Votre compte est en attente d'approbation par l'administrateur. Vous recevrez une notification sur votre téléphone dès validation."
-                    )
-                    return@launch
+                val activeUser = existingUser.copy(
+                    status = "Actif",
+                    isOnline = true,
+                    lastActiveMillis = System.currentTimeMillis(),
+                    password = pwd,
+                    firebaseUid = fbUser?.uid ?: existingUser.firebaseUid,
+                    authSynced = true,
+                    resetRequested = false,
+                    resetRequestNote = ""
+                )
+                authRepository.saveDeviceGoogleAccount(activeUser.email, activeUser.name)
+                repository.insertUser(activeUser)
+                repository.setUserOnline(activeUser.email, true)
+                if (activeUser.site.isNotBlank()) {
+                    setSite(activeUser.site)
                 }
-
-                if (resolvedUser.site.isNotBlank()) {
-                    setSite(resolvedUser.site)
-                }
-
-                repository.setUserOnline(resolvedUser.email, true)
 
                 authState.value = authState.value.copy(
                     isLoggedIn = true,
-                    currentUser = resolvedUser.copy(isOnline = true),
+                    currentUser = activeUser,
                     isMfaStep = false,
                     isSubmitting = false,
                     authError = null
                 )
             } else {
-                // If Firebase fails but user exists locally in Room DB, permit local login if active
-                if (localUser != null) {
-                    if (localUser.status.equals("Bloqué", ignoreCase = true) || localUser.status.equals("Inactif", ignoreCase = true)) {
-                        authState.value = authState.value.copy(
-                            isLoggedIn = false,
-                            isSubmitting = false,
-                            authError = "Ce compte utilisateur a été désactivé par l'administrateur."
-                        )
-                        return@launch
+                // If user has an existing registered account and their password matches the Admin-managed password
+                if (existingUser != null && existingUser.password.isNotBlank() && existingUser.password == pwd) {
+                    val syncRes = authRepository.syncUserAccountWithFirebaseAuth(
+                        email = email,
+                        newPassword = pwd,
+                        displayName = existingUser.name
+                    )
+                    val activeUser = existingUser.copy(
+                        status = "Actif",
+                        isOnline = true,
+                        lastActiveMillis = System.currentTimeMillis(),
+                        firebaseUid = syncRes.getOrNull() ?: existingUser.firebaseUid,
+                        authSynced = syncRes.isSuccess,
+                        resetRequested = false,
+                        resetRequestNote = ""
+                    )
+                    authRepository.saveDeviceGoogleAccount(activeUser.email, activeUser.name)
+                    repository.insertUser(activeUser)
+                    repository.setUserOnline(activeUser.email, true)
+                    if (activeUser.site.isNotBlank()) {
+                        setSite(activeUser.site)
                     }
-                    if (localUser.status.equals("En attente", ignoreCase = true)) {
-                        authState.value = authState.value.copy(
-                            isLoggedIn = false,
-                            isSubmitting = false,
-                            authError = "Votre compte est en attente d'approbation par l'administrateur. Vous recevrez une notification dès validation."
-                        )
-                        return@launch
-                    }
-                    if (localUser.site.isNotBlank()) {
-                        setSite(localUser.site)
-                    }
-                    repository.setUserOnline(localUser.email, true)
                     authState.value = authState.value.copy(
                         isLoggedIn = true,
-                        currentUser = localUser.copy(isOnline = true),
+                        currentUser = activeUser,
                         isMfaStep = false,
                         isSubmitting = false,
                         authError = null
                     )
-                } else {
-                    val errorMsg = mapAuthError(result.exceptionOrNull(), isRegister = false)
+                } else if (existingUser == null) {
                     authState.value = authState.value.copy(
                         isLoggedIn = false,
                         isSubmitting = false,
-                        authError = errorMsg
+                        authError = "Aucun compte trouvé pour $email. Seuls les utilisateurs disposant d'un compte peuvent se connecter. Cliquez sur 'S'inscrire' pour créer votre compte."
+                    )
+                } else {
+                    authState.value = authState.value.copy(
+                        isLoggedIn = false,
+                        isSubmitting = false,
+                        authError = "Mot de passe incorrect pour $email. En cas d'oubli, cliquez sur 'Compte ou mot de passe oublié ?' pour que l'administrateur réinitialise votre accès."
                     )
                 }
             }
@@ -653,10 +697,12 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
     fun register(
         name: String,
         site: String,
-        phone: String
+        phone: String,
+        role: String = "Collaborateur HSE",
+        department: String = "Opérations & Sécurité"
     ) {
         val trimmedName = name.trim()
-        val email = authState.value.emailInput.trim()
+        val email = authState.value.emailInput.trim().lowercase()
         val pwd = authState.value.passwordInput.trim()
         val trimmedSite = site.trim()
         val trimmedPhone = phone.trim()
@@ -678,13 +724,38 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (pwd.length < 6) {
-            authState.value = authState.value.copy(authError = "Le mot de passe doit comporter au moins 6 caractères.", authSuccess = null)
+            authState.value = authState.value.copy(authError = "Le mot de passe doit comporter au moins 6 caractères pour la synchronisation Firebase Auth.", authSuccess = null)
             return
         }
 
         viewModelScope.launch {
             authState.value = authState.value.copy(isSubmitting = true, authError = null, authSuccess = null)
-            val result = authRepository.signUpWithEmail(email, pwd, trimmedName)
+
+            // Check if account is already registered
+            val existingFirestore = try { repository.fetchUserFromFirestore(email) } catch (e: Exception) { null }
+            val existingLocal = repository.getUserDirect(email)
+            if ((existingFirestore != null || existingLocal != null) && !email.equals("abeissajean66@gmail.com", ignoreCase = true)) {
+                authState.value = authState.value.copy(
+                    isSubmitting = false,
+                    authError = "Un compte existe déjà avec l'adresse $email. Veuillez utiliser 'Se connecter' ou demander une récupération à l'administrateur."
+                )
+                return@launch
+            }
+
+            // 1. Create and synchronize user in Firebase Auth for security
+            val signUpResult = authRepository.signUpWithEmail(email, pwd, trimmedName)
+            val firebaseUid = if (signUpResult.isSuccess) {
+                signUpResult.getOrNull()?.uid ?: ""
+            } else {
+                // Synchronize with Firebase Auth via secondary worker and sign in
+                val syncRes = authRepository.syncUserAccountWithFirebaseAuth(
+                    email = email,
+                    newPassword = pwd,
+                    displayName = trimmedName
+                )
+                authRepository.signInWithEmail(email, pwd)
+                syncRes.getOrNull() ?: authRepository.getCurrentUser()?.uid ?: ""
+            }
 
             val initials = trimmedName.split(" ")
                 .filter { it.isNotBlank() }
@@ -694,120 +765,288 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
                 .ifEmpty { "UT" }
 
             val resolvedSite = if (trimmedSite.isNotBlank()) trimmedSite else "Site de Figuil"
+            val effectiveRole = if (email.equals("abeissajean66@gmail.com", ignoreCase = true)) "Admin" else role
+
             val newUser = UserEntity(
                 name = trimmedName,
                 email = email,
                 site = resolvedSite,
                 phone = trimmedPhone,
-                role = "Collaborateur HSE",
+                role = effectiveRole,
+                department = department,
                 avatarInitials = initials,
                 pushNotificationsEnabled = true,
-                status = "En attente" // Awaiting Admin Approval
-            )
-            repository.insertUser(newUser)
-            repository.broadcastNotification(
-                title = "Demande d'accès",
-                message = "Nouvel utilisateur : $trimmedName ($email) est en attente d'approbation administrateur.",
-                type = "Information"
+                status = "Actif", // Immediate direct access upon clicking S'inscrire
+                isOnline = true,
+                lastActiveMillis = System.currentTimeMillis(),
+                password = pwd,
+                firebaseUid = firebaseUid,
+                authSynced = true,
+                resetRequested = false,
+                resetRequestNote = ""
             )
 
-            // User must wait for administrator approval before accessing the app
+            // 2. Save to Room and synchronize to Firestore in real time
+            authRepository.saveDeviceGoogleAccount(newUser.email, newUser.name)
+            repository.insertUser(newUser)
+            repository.setUserOnline(email, true)
+            setSite(resolvedSite)
+
+            // 3. Broadcast real-time notification to Admin & team
+            repository.broadcastNotification(
+                title = "Nouveau compte actif : $trimmedName",
+                message = "$trimmedName ($email • $resolvedSite) a créé son compte et est synchronisé sur Firebase Auth.",
+                type = "SYSTEM"
+            )
+
+            // 4. Grant immediate access into the application
             isRegisterOpen.value = false
             authState.value = authState.value.copy(
-                isLoggedIn = false,
+                isLoggedIn = true,
+                currentUser = newUser,
+                emailInput = email,
+                passwordInput = pwd,
+                isMfaStep = false,
                 isSubmitting = false,
                 authError = null,
-                authSuccess = "Compte créé avec succès ! Votre accès est actuellement en attente d'approbation par l'administrateur. Vous recevrez une notification sur votre téléphone dès validation."
+                authSuccess = null
             )
+            refreshRealtimeWeather(resolvedSite)
         }
     }
 
-    fun sendPasswordReset(email: String, onResult: (Boolean, String) -> Unit) {
-        val trimmedEmail = email.trim()
+    fun sendPasswordReset(email: String, note: String = "", onResult: (Boolean, String) -> Unit) {
+        val trimmedEmail = email.trim().lowercase()
         if (trimmedEmail.isEmpty()) {
-            onResult(false, "Veuillez renseigner votre adresse e-mail.")
+            onResult(false, "Veuillez renseigner votre adresse e-mail ou votre identifiant.")
             return
         }
         viewModelScope.launch {
-            val result = authRepository.sendPasswordResetEmail(trimmedEmail)
-            if (result.isSuccess) {
-                onResult(true, "Un e-mail de réinitialisation a été envoyé à $trimmedEmail.")
+            // 1. Flag account in Firestore & notify Admin so Admin can manage/reset the user's password
+            repository.requestAccountOrPasswordRecovery(
+                identifier = trimmedEmail,
+                note = note.ifBlank { "Oubli de compte ou mot de passe signalé depuis la page de connexion" }
+            )
+            // 2. If it's a valid email, also send Firebase Auth password reset link
+            if (trimmedEmail.contains("@")) {
+                val result = authRepository.sendPasswordResetEmail(trimmedEmail)
+                if (result.isSuccess) {
+                    onResult(
+                        true,
+                        "Un lien Firebase Auth a été envoyé à $trimmedEmail ET l'administrateur HSE a été alerté en temps réel pour gérer ou réinitialiser votre accès."
+                    )
+                } else {
+                    onResult(
+                        true,
+                        "Votre demande de récupération pour $trimmedEmail a été transmise en temps réel à l'administrateur HSE qui peut réinitialiser votre mot de passe."
+                    )
+                }
             } else {
-                val errorMsg = mapAuthError(result.exceptionOrNull(), isRegister = false)
-                onResult(false, errorMsg)
+                onResult(
+                    true,
+                    "Votre demande d'assistance pour '$trimmedEmail' a été envoyée à l'administrateur HSE pour récupération de votre compte."
+                )
             }
         }
     }
 
-    fun loginWithGoogle(context: android.content.Context? = null) {
+    fun closeGoogleAccountPicker() {
+        isGoogleAccountPickerOpen.value = false
+    }
+
+    fun loginWithGoogle(
+        context: android.content.Context? = null,
+        isRegisterMode: Boolean = false,
+        registerNameHint: String = "",
+        registerSiteHint: String = "",
+        registerPhoneHint: String = ""
+    ) {
         viewModelScope.launch {
             authState.value = authState.value.copy(isSubmitting = true, authError = null, authSuccess = null)
-            val result = authRepository.signInWithGoogle(context)
-            if (result.isSuccess) {
-                val googleName = result.displayName ?: "Jean Abeissa"
-                val googleEmail = result.email ?: "abeissajean66@gmail.com"
-                val initials = googleName.split(" ")
-                    .filter { it.isNotBlank() }
-                    .take(2)
-                    .map { it.first().uppercaseChar() }
-                    .joinToString("")
-                    .ifEmpty { "JA" }
-
-                // Check Firestore first for existing user data to ensure persistence
-                val firestoreUser = try { repository.fetchUserFromFirestore(googleEmail) } catch (e: Exception) { null }
-                val localUser = repository.getUserDirect(googleEmail)
-                val isPrincipalAdmin = googleEmail.equals("abeissajean66@gmail.com", ignoreCase = true) ||
-                        googleEmail.startsWith("admin", ignoreCase = true) ||
-                        googleEmail.contains("admin.hse", ignoreCase = true)
-
-                val role = when {
-                    isPrincipalAdmin -> "Admin"
-                    firestoreUser?.role?.isNotBlank() == true -> firestoreUser.role
-                    localUser?.role?.isNotBlank() == true -> localUser.role
-                    else -> "Collaborateur"
-                }
-
-                val site = when {
-                    isPrincipalAdmin -> "Direction Générale (Tous sites)"
-                    firestoreUser?.site?.isNotBlank() == true -> firestoreUser.site
-                    localUser?.site?.isNotBlank() == true -> localUser.site
-                    else -> "Site de Figuil"
-                }
-
-                val phone = firestoreUser?.phone?.ifBlank { localUser?.phone ?: "" } ?: ""
-                val dept = if (isPrincipalAdmin) "Direction Générale HSE" else (firestoreUser?.department ?: "Sécurité Industrielle")
-
-                val updatedUser = UserEntity(
-                    email = googleEmail,
-                    name = googleName,
-                    role = role,
-                    site = site,
-                    phone = phone,
-                    department = dept,
-                    avatarInitials = initials,
-                    status = "Actif",
-                    isOnline = true,
-                    lastActiveMillis = System.currentTimeMillis()
+            val result = authRepository.signInWithGoogle(
+                callerContext = context,
+                preferredEmail = authState.value.emailInput,
+                preferredName = registerNameHint
+            )
+            if (result.isSuccess && !result.email.isNullOrBlank()) {
+                completeGoogleSignIn(
+                    googleEmail = result.email,
+                    googleName = result.displayName?.ifBlank { registerNameHint } ?: registerNameHint,
+                    selectedSiteInput = registerSiteHint,
+                    phoneInput = registerPhoneHint
                 )
-
-                // Save to Room and sync to Firestore
-                repository.insertUser(updatedUser)
-                repository.setUserOnline(googleEmail, true)
-                setSite(site)
-
-                authState.value = authState.value.copy(
-                    isLoggedIn = true,
-                    currentUser = updatedUser,
-                    isSubmitting = false,
-                    authError = null
-                )
-                refreshRealtimeWeather(site)
             } else {
                 authState.value = authState.value.copy(
                     isSubmitting = false,
-                    authError = result.errorMessage
+                    authError = result.errorMessage ?: "Impossible de récupérer votre compte Google."
                 )
             }
+        }
+    }
+
+    fun completeGoogleSignIn(
+        googleEmail: String,
+        googleName: String = "",
+        selectedSiteInput: String = "",
+        phoneInput: String = ""
+    ) {
+        val cleanEmail = googleEmail.trim().lowercase()
+        val emailPattern = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+        if (cleanEmail.isBlank() || !emailPattern.matches(cleanEmail)) {
+            authState.value = authState.value.copy(
+                isSubmitting = false,
+                authError = "Veuillez saisir ou sélectionner une adresse e-mail Google valide."
+            )
+            return
+        }
+
+        if (AppDatabase.isDemoUserEmail(cleanEmail)) {
+            authState.value = authState.value.copy(
+                isSubmitting = false,
+                authError = "Les comptes de démonstration ne sont pas autorisés."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            authState.value = authState.value.copy(isSubmitting = true, authError = null, authSuccess = null)
+
+            val isPrincipalAdmin = cleanEmail.equals("abeissajean66@gmail.com", ignoreCase = true)
+            if (isPrincipalAdmin) {
+                isGoogleAccountPickerOpen.value = false
+                loginAsPrincipalAdmin()
+                return@launch
+            }
+
+            // 1. Check Firestore & Room for an existing registered account
+            val firestoreUser = try { repository.fetchUserFromFirestore(cleanEmail) } catch (e: Exception) { null }
+            val localUser = repository.getUserDirect(cleanEmail)
+            val existingUser = firestoreUser ?: localUser
+
+            if (existingUser != null && (existingUser.status.equals("Bloqué", ignoreCase = true) ||
+                        existingUser.status.equals("Suspendu", ignoreCase = true) ||
+                        existingUser.status.equals("Inactif", ignoreCase = true))
+            ) {
+                authRepository.signOut()
+                isGoogleAccountPickerOpen.value = false
+                authState.value = authState.value.copy(
+                    isSubmitting = false,
+                    authError = "Ce compte utilisateur a été désactivé ou suspendu par l'administrateur."
+                )
+                return@launch
+            }
+
+            // Derive display name if not provided
+            val derivedNameFromEmail = cleanEmail.substringBefore("@")
+                .replace(".", " ")
+                .replace("_", " ")
+                .replace("-", " ")
+                .split(" ")
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { part -> part.replaceFirstChar { it.uppercaseChar() } }
+                .ifBlank { "Collaborateur HSE" }
+
+            val resolvedName = when {
+                googleName.isNotBlank() -> googleName.trim()
+                existingUser?.name?.isNotBlank() == true -> existingUser.name
+                else -> derivedNameFromEmail
+            }
+
+            val initials = resolvedName.split(" ")
+                .filter { it.isNotBlank() }
+                .take(2)
+                .map { it.first().uppercaseChar() }
+                .joinToString("")
+                .ifEmpty { "UT" }
+
+            val role = when {
+                existingUser?.role?.isNotBlank() == true -> existingUser.role
+                else -> "Collaborateur HSE"
+            }
+
+            val site = when {
+                selectedSiteInput.isNotBlank() -> selectedSiteInput.trim()
+                existingUser?.site?.isNotBlank() == true -> existingUser.site
+                else -> "Site de Figuil"
+            }
+
+            val phone = when {
+                phoneInput.isNotBlank() -> phoneInput.trim()
+                existingUser?.phone?.isNotBlank() == true -> existingUser.phone
+                else -> ""
+            }
+
+            val dept = existingUser?.department?.ifBlank { "Opérations & Sécurité" } ?: "Opérations & Sécurité"
+            val syncedPassword = existingUser?.password?.takeIf { it.length >= 6 }
+                ?: authState.value.passwordInput.trim().takeIf { it.length >= 6 }
+                ?: "GoogleHse_${cleanEmail.hashCode().toUInt()}"
+
+            // 2. Ensure account is synchronized on Firebase Auth for security and admin management
+            val syncRes = authRepository.syncUserAccountWithFirebaseAuth(
+                email = cleanEmail,
+                newPassword = syncedPassword,
+                previousPassword = existingUser?.password ?: "",
+                displayName = resolvedName
+            )
+            if (authRepository.getCurrentUser() == null) {
+                authRepository.signInAndSyncPasswordIfNeeded(
+                    email = cleanEmail,
+                    enteredPassword = syncedPassword,
+                    previousPassword = existingUser?.password ?: "",
+                    displayName = resolvedName
+                )
+            }
+
+            val firebaseUid = authRepository.getCurrentUser()?.uid
+                ?: syncRes.getOrNull()
+                ?: existingUser?.firebaseUid
+                ?: ""
+
+            val updatedUser = (existingUser ?: UserEntity(email = cleanEmail)).copy(
+                email = cleanEmail,
+                name = resolvedName,
+                role = role,
+                site = site,
+                phone = phone,
+                department = dept,
+                avatarInitials = existingUser?.avatarInitials?.ifBlank { initials } ?: initials,
+                status = "Actif",
+                isOnline = true,
+                lastActiveMillis = System.currentTimeMillis(),
+                password = syncedPassword,
+                firebaseUid = firebaseUid,
+                authSynced = true,
+                resetRequested = false,
+                resetRequestNote = ""
+            )
+
+            // 3. Save to Room and synchronize to Firestore in real time
+            authRepository.saveDeviceGoogleAccount(cleanEmail, resolvedName)
+            repository.insertUser(updatedUser)
+            repository.setUserOnline(cleanEmail, true)
+            setSite(site)
+
+            if (existingUser == null) {
+                repository.broadcastNotification(
+                    title = "Nouveau compte Google actif : $resolvedName",
+                    message = "$resolvedName ($cleanEmail • $site) s'est connecté via Google et est synchronisé sur Firebase Auth.",
+                    type = "SYSTEM"
+                )
+            }
+
+            // 4. Grant immediate access into the application
+            isGoogleAccountPickerOpen.value = false
+            isRegisterOpen.value = false
+            authState.value = authState.value.copy(
+                isLoggedIn = true,
+                currentUser = updatedUser,
+                emailInput = cleanEmail,
+                isMfaStep = false,
+                isSubmitting = false,
+                authError = null,
+                authSuccess = null
+            )
+            refreshRealtimeWeather(site)
         }
     }
 
@@ -822,7 +1061,6 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
             if (email.isNotBlank()) {
                 repository.setUserOnline(email, false)
             }
-            repository.clearUsers()
         }
     }
 
@@ -1043,18 +1281,99 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
     // Admin User Actions
     fun saveUser(user: UserEntity) {
         viewModelScope.launch {
-            val existing = repository.getUserDirect(user.email)
+            val cleanEmail = user.email.trim().lowercase()
+            val existing = repository.getUserDirect(cleanEmail)
+            val resolvedPassword = user.password.ifBlank { existing?.password ?: "Cimencam2026" }
+            // Synchronize account & password with Firebase Auth using secondary worker
+            val syncRes = authRepository.syncUserAccountWithFirebaseAuth(
+                email = cleanEmail,
+                newPassword = resolvedPassword,
+                displayName = user.name,
+                previousPassword = existing?.password ?: ""
+            )
+            val syncedUid = syncRes.getOrNull() ?: existing?.firebaseUid ?: user.firebaseUid
+
+            val baseUser = user.copy(
+                email = cleanEmail,
+                password = resolvedPassword,
+                firebaseUid = syncedUid,
+                authSynced = true,
+                resetRequested = false,
+                resetRequestNote = ""
+            )
+
             val finalUser = if (existing?.isProtectedAdmin == true) {
-                user.copy(
-                    role = if (user.role.contains("Admin", ignoreCase = true)) user.role else "Admin",
+                baseUser.copy(
+                    role = if (baseUser.role.contains("Admin", ignoreCase = true)) baseUser.role else "Admin",
                     status = "Actif"
                 )
             } else {
-                user
+                baseUser
             }
             repository.addUser(finalUser)
             isAddEditUserOpen.value = false
             editingUser.value = null
+        }
+    }
+
+    fun adminResetUserPassword(
+        targetUser: UserEntity,
+        newPassword: String,
+        onResult: (Boolean, String) -> Unit = { _, _ -> }
+    ) {
+        val cleanPwd = newPassword.trim()
+        if (cleanPwd.length < 6) {
+            onResult(false, "Le nouveau mot de passe doit comporter au moins 6 caractères pour Firebase Auth.")
+            return
+        }
+        viewModelScope.launch {
+            val syncRes = authRepository.syncUserAccountWithFirebaseAuth(
+                email = targetUser.email,
+                newPassword = cleanPwd,
+                displayName = targetUser.name,
+                previousPassword = targetUser.password
+            )
+            val uid = syncRes.getOrNull() ?: targetUser.firebaseUid
+            repository.updateUserPasswordAndSync(
+                email = targetUser.email,
+                newPassword = cleanPwd,
+                firebaseUid = uid,
+                authSynced = true
+            )
+            repository.broadcastNotification(
+                title = "🔑 Accès & Mot de passe réinitialisé",
+                message = "L'administrateur a mis à jour et synchronisé sur Firebase Auth les identifiants du compte ${targetUser.name} (${targetUser.email}).",
+                type = "SYSTEM"
+            )
+            onResult(
+                true,
+                "Le mot de passe de ${targetUser.name} (${targetUser.email}) a été mis à jour et synchronisé sur Firebase Auth avec succès."
+            )
+        }
+    }
+
+    fun adminSendFirebaseResetEmail(
+        email: String,
+        onResult: (Boolean, String) -> Unit = { _, _ -> }
+    ) {
+        val cleanEmail = email.trim().lowercase()
+        viewModelScope.launch {
+            val res = authRepository.sendPasswordResetEmail(cleanEmail)
+            repository.clearAccountRecoveryRequest(cleanEmail)
+            if (res.isSuccess) {
+                onResult(true, "Un e-mail officiel Firebase Auth de réinitialisation a été envoyé à $cleanEmail.")
+            } else {
+                onResult(
+                    false,
+                    "Impossible d'envoyer l'e-mail Firebase Auth (${res.exceptionOrNull()?.localizedMessage ?: "vérifiez que le compte existe"}). Vous pouvez définir directement un nouveau mot de passe ci-dessus."
+                )
+            }
+        }
+    }
+
+    fun adminClearRecoveryRequest(email: String) {
+        viewModelScope.launch {
+            repository.clearAccountRecoveryRequest(email.trim().lowercase())
         }
     }
 
@@ -1154,6 +1473,12 @@ class HseViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteNotification(notificationId: Long) {
         viewModelScope.launch {
             repository.deleteNotification(notificationId)
+        }
+    }
+
+    fun clearAllNotifications() {
+        viewModelScope.launch {
+            repository.clearAllNotifications()
         }
     }
 

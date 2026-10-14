@@ -1,5 +1,7 @@
 package com.example.ui.screens.policies
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +51,7 @@ import com.example.domain.HseStaticData
 import com.example.ui.components.MediaPermissionBanner
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.HseViewModel
+import com.example.ui.viewmodel.MainTab
 import com.example.util.MediaStorageHelper
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -65,10 +69,21 @@ fun PoliciesScreen(
     var viewingDocument by remember { mutableStateOf<HseDocument?>(null) }
     val multimediaContents by viewModel.allContents.collectAsState()
 
+    var showPlanUrgenceDialog by remember { mutableStateOf(false) }
+    var showEnvironnementDialog by remember { mutableStateOf(false) }
+    var showInductionDialog by remember { mutableStateOf(false) }
+    var showSanteDialog by remember { mutableStateOf(false) }
+    var showSecuriteDialog by remember { mutableStateOf(false) }
+    var showProgrammeDialog by remember { mutableStateOf(false) }
+    var showPolitiqueDialog by remember { mutableStateOf(false) }
+    var showSuccesStoriesDialog by remember { mutableStateOf(false) }
+    var isGridLayout by remember { mutableStateOf(true) }
+
     val authState by viewModel.authState.collectAsState()
     val userState by viewModel.user.collectAsState()
     val activeUser = userState?.takeIf { it.email.isNotBlank() } ?: authState.currentUser
     val isUserAdmin = activeUser.isAdmin
+    val isB2Syncing by viewModel.isB2Syncing.collectAsState()
 
     // Pending Imported File State for Confirmation & Categorization Dialog
     var pendingImportResult by remember { mutableStateOf<com.example.util.ImportedFileResult?>(null) }
@@ -76,6 +91,8 @@ fun PoliciesScreen(
     var pendingImportCategory by remember { mutableStateOf("Sécurité") }
     var pendingImportDescription by remember { mutableStateOf("") }
     var isImportDialogOpen by remember { mutableStateOf(false) }
+    var isServerDocsDialogOpen by remember { mutableStateOf(false) }
+    val b2Files by viewModel.b2FilesList.collectAsState()
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -133,18 +150,24 @@ fun PoliciesScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(HSEDarkBg)
+            .background(Color(0xFF0F172A))
     ) {
+        val columnsCount = when {
+            !isGridLayout -> 1
+            maxWidth >= 700.dp -> 3
+            maxWidth >= 330.dp -> 2
+            else -> 1
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 80.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Header Hero Banner (Modern Dynamic Gradient)
+            // Header Hero Banner (Vert forêt #1B7F4B -> Vert profond #0F5132)
             item {
                 Box(
                     modifier = Modifier
@@ -152,12 +175,12 @@ fun PoliciesScreen(
                         .background(
                             Brush.verticalGradient(
                                 listOf(
-                                    Color(0xFF1E3A8A),
-                                    Color(0xFF0F172A)
+                                    HSEBluePrimary, // #1B7F4B Vert forêt
+                                    HSEBlueDark     // #0F5132 Vert profond
                                 )
                             )
                         )
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .padding(horizontal = 20.dp, vertical = 18.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -165,352 +188,413 @@ fun PoliciesScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8))
-                                    ),
-                                    RoundedCornerShape(12.dp)
+                                    Color.White.copy(alpha = 0.2f),
+                                    RoundedCornerShape(14.dp)
                                 )
-                                .border(1.dp, Color(0xFF60A5FA).copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                                .border(1.2.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Shield,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Rubrique Références",
+                                    color = Color.White,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Surface(
+                                    color = Color.White.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "HSE",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = "Politiques & Référentiels",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Chartes, livrets officiels et base documentaire",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 12.sp
+                                text = "Directives officielles, procédures d'urgence & référentiels",
+                                color = Color.White.copy(alpha = 0.95f),
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
                 }
             }
 
-            // Search Bar & Import Action
+            // Champ de Recherche Compact & Lisible
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Search Input
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Rechercher un document, guide, réf...", color = HSETextMuted, fontSize = 13.sp) },
-                        leadingIcon = {
-                            Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = HSEBlueLight, modifier = Modifier.size(20.dp))
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotBlank()) {
-                                IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
-                                    Icon(imageVector = Icons.Default.Clear, contentDescription = "Effacer", tint = HSETextSecondary)
-                                }
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = HSEFieldBg,
-                            unfocusedContainerColor = HSEFieldBg,
-                            focusedBorderColor = HSEBlueLight,
-                            unfocusedBorderColor = HSECardBorder,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("policy_search_input")
-                    )
-
-                    // Quick Action: Import & Read Local Documents from Device
-                    if (isUserAdmin) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                            shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    filePickerLauncher.launch("*/*")
-                                }
-                                .testTag("import_local_doc_btn")
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            text = "Rechercher un module, consigne, fiche...",
+                            color = Color(0xFFCBD5E1),
+                            fontSize = 14.sp
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = HSEGreenSafe,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(24.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(42.dp)
-                                        .background(Color(0xFF38BDF8).copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CloudUpload,
-                                        contentDescription = null,
-                                        tint = Color(0xFF38BDF8),
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Importer & Enregistrer un document",
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Ajout immédiat dans la base de données Room et synchronisation Cloud",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 11.sp
-                                    )
-                                }
                                 Icon(
-                                    imageVector = Icons.Default.AddCircle,
-                                    contentDescription = null,
-                                    tint = Color(0xFF38BDF8),
-                                    modifier = Modifier.size(22.dp)
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Effacer la recherche",
+                                    tint = Color.White
                                 )
                             }
                         }
-                    }
-                }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF1E293B),
+                        unfocusedContainerColor = Color(0xFF1E293B),
+                        focusedBorderColor = HSEGreenSafe,
+                        unfocusedBorderColor = Color(0xFF475569),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 14.sp, color = Color.White, fontWeight = FontWeight.Medium),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .testTag("policy_search_input")
+                )
             }
 
-            // Filter Chips (Horizontal)
+            // Filtres thématiques horizontaux compacts
             item {
-                val filterChips = listOf("Tous", "Politique", "Santé", "Sécurité", "Environnement", "Induction", "Documents Importés")
+                val filterChips = listOf(
+                    "Tous" to "Tous les modules (8)",
+                    "Politique" to "📜 Politique",
+                    "Succès" to "⭐ Succès Stories",
+                    "Urgence" to "🚨 Plan d'urgence",
+                    "Environnement" to "🌿 Environnement",
+                    "Induction" to "🎓 Induction",
+                    "Santé" to "❤️ Santé",
+                    "Sécurité" to "🛡️ Sécurité",
+                    "Programme" to "📅 Programme"
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    filterChips.forEach { chip ->
-                        val isSelected = selectedCategoryFilter == chip
+                    filterChips.forEach { (key, label) ->
+                        val isSelected = selectedCategoryFilter == key
                         Surface(
-                            color = if (isSelected) HSEBluePrimary else HSECardBg,
+                            onClick = { selectedCategoryFilter = key },
                             shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) HSEBluePrimary else Color(0xFF1E293B),
                             border = BorderStroke(
                                 1.dp,
-                                if (isSelected) HSEBlueLight else HSECardBorder
-                            ),
-                            modifier = Modifier
-                                .clickable { selectedCategoryFilter = chip }
-                                .testTag("filter_chip_$chip")
+                                if (isSelected) HSEGreenSafe else Color(0xFF475569)
+                            )
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (chip != "Tous") {
-                                    val icon = when (chip) {
-                                        "Politique" -> Icons.Default.Shield
-                                        "Santé" -> Icons.Default.Favorite
-                                        "Sécurité" -> Icons.Default.Engineering
-                                        "Environnement" -> Icons.Default.Eco
-                                        "Induction" -> Icons.Default.School
-                                        else -> Icons.Default.FolderOpen
-                                    }
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = null,
-                                        tint = if (isSelected) Color.White else HSETextSecondary,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                }
-                                Text(
-                                    text = chip,
-                                    color = if (isSelected) Color.White else HSETextSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
+                            Text(
+                                text = label,
+                                color = if (isSelected) Color.White else Color(0xFFF1F5F9),
+                                fontSize = 12.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
                         }
                     }
                 }
             }
 
-            // Catégories Section Header (When showing all and no search query)
-            if (selectedCategoryFilter == "Tous" && searchQuery.isBlank()) {
-                item {
-                    Text(
-                        text = "Catégories Thématiques",
-                        color = HSETextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                    )
-                }
+            // 8 Boutons Politiques Responsifs & Compacts
+            val buttonItems = listOf(
+                PolicyButtonItem(
+                    title = "Politique",
+                    subtitle = "Engagements HSE & guide officiel",
+                    badge = "GUIDE HSE",
+                    icon = Icons.Default.AutoStories,
+                    accentColor = Color(0xFF0284C7),
+                    testTag = "button_politique",
+                    filterCategory = "Politique",
+                    searchKeywords = "politique guide charte vision direction engagements management hse holcim",
+                    onClick = { showPolitiqueDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Succès Stories",
+                    subtitle = "Bonnes pratiques & REX terrain",
+                    badge = "REX TERRAIN",
+                    icon = Icons.Default.Star,
+                    accentColor = Color(0xFFD97706),
+                    testTag = "button_succes_stories",
+                    filterCategory = "Succès",
+                    searchKeywords = "succès succes stories rex bonnes pratiques retours expérience innovation reconnaissance",
+                    onClick = { showSuccesStoriesDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Plan d'urgence",
+                    subtitle = "Contacts 24h/24 & secours",
+                    badge = "24/7",
+                    icon = Icons.Default.Warning,
+                    accentColor = Color(0xFFEF4444),
+                    testTag = "button_plan_urgence",
+                    filterCategory = "Urgence",
+                    searchKeywords = "plan urgence secours rassemblement 24/7 hotline appel fiches incendie accident",
+                    onClick = { showPlanUrgenceDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Environnement",
+                    subtitle = "ISO 14001 & transition",
+                    badge = "ISO 14001",
+                    icon = Icons.Default.Eco,
+                    accentColor = Color(0xFF10B981),
+                    testTag = "button_environnement",
+                    filterCategory = "Environnement",
+                    searchKeywords = "environnement durable écologie iso 14001 eau décarbonation déchets recyclage",
+                    onClick = { showEnvironnementDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Induction",
+                    subtitle = "Accueil & livret officiel",
+                    badge = "ACCUEIL",
+                    icon = Icons.Default.School,
+                    accentColor = Color(0xFF2563EB),
+                    testTag = "button_induction",
+                    filterCategory = "Induction",
+                    searchKeywords = "induction accueil nouveaux arrivants prestataires livret guérite visiteur",
+                    onClick = { showInductionDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Santé",
+                    subtitle = "Prévention & ergonomie",
+                    badge = "SANTÉ",
+                    icon = Icons.Default.Favorite,
+                    accentColor = Color(0xFFE11D48),
+                    testTag = "button_sante",
+                    filterCategory = "Santé",
+                    searchKeywords = "santé prévention sanitaire hygiène poussière chaleur bruit ergonomie médical",
+                    onClick = { showSanteDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Sécurité",
+                    subtitle = "12 Règles d'Or & standards",
+                    badge = "12 RÈGLES",
+                    icon = Icons.Default.Shield,
+                    accentColor = HSEBluePrimary,
+                    testTag = "button_securite",
+                    filterCategory = "Sécurité",
+                    searchKeywords = "sécurité règles d'or loto epi hauteur retrait consignation permis",
+                    onClick = { showSecuriteDialog = true }
+                ),
+                PolicyButtonItem(
+                    title = "Programme",
+                    subtitle = "Campagnes 2026 & rituels",
+                    badge = "2026",
+                    icon = Icons.Default.CalendarMonth,
+                    accentColor = Color(0xFF6366F1),
+                    testTag = "button_programme",
+                    filterCategory = "Programme",
+                    searchKeywords = "programme campagnes formations 2026 calendrier quart d'heure hse vfl rituels",
+                    onClick = { showProgrammeDialog = true }
+                )
+            )
 
-                // Category items
-                items(categories, key = { it.title }) { cat ->
-                    CategoryCardItem(
-                        category = cat,
-                        onClick = { selectedCategoryFilter = cat.title },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
-                    )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
+            val filteredButtons = buttonItems.filter { btn ->
+                val matchesCategory = selectedCategoryFilter == "Tous" || selectedCategoryFilter == btn.filterCategory
+                val q = searchQuery.trim().lowercase()
+                val matchesSearch = q.isBlank() || btn.title.lowercase().contains(q) || btn.searchKeywords.lowercase().contains(q)
+                matchesCategory && matchesSearch
             }
 
-            // Documents récents Section Header
-            if (filteredDocuments.isNotEmpty()) {
-                item {
-                    Text(
-                        text = if (selectedCategoryFilter == "Tous") "Livrets Officiels & Guides (${filteredDocuments.size})" else "Guides & Référentiels (${filteredDocuments.size})",
-                        color = HSETextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                    )
-                }
-
-                // Documents list
-                items(filteredDocuments, key = { it.id }) { doc ->
-                    DocumentCardItem(
-                        document = doc,
-                        onClick = { viewingDocument = doc },
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            // Multimedia Contents from Database / Firebase (PDF, Photos, Videos, Liens)
-            if (filteredMedia.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Base Documentaire & Médias (${filteredMedia.size})",
-                        color = HSETextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                    )
-                }
-
-                items(filteredMedia, key = { it.id }) { media ->
-                    val (badgeColor, badgeIcon) = when (media.type.uppercase()) {
-                        "PDF" -> Pair(Color(0xFFEF4444), Icons.Default.Description)
-                        "PHOTO" -> Pair(Color(0xFF10B981), Icons.Default.Image)
-                        "VIDEO" -> Pair(Color(0xFF3B82F6), Icons.Default.Videocam)
-                        "LIEN" -> Pair(Color(0xFFA855F7), Icons.Default.Link)
-                        else -> Pair(Color(0xFFF59E0B), Icons.Default.Article)
-                    }
-
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = HSECardBg),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, HSECardBorder),
+            // Section Header Responsif avec sélecteur Grille / Liste - Lisibilité Optimale
+            item {
+                Surface(
+                    color = Color(0xFF1E293B),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.2.dp, Color(0xFF334155)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp)
-                            .clickable { viewModel.openContentReader(media) }
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .background(badgeColor.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(imageVector = badgeIcon, contentDescription = null, tint = badgeColor, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .background(HSEBluePrimary.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                        .border(1.dp, HSEBluePrimary, RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FolderOpen,
+                                        contentDescription = null,
+                                        tint = Color(0xFF38BDF8),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Rubriques & Références Clés",
+                                        color = Color.White,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 0.2.sp
+                                    )
                                     Surface(
-                                        color = badgeColor.copy(alpha = 0.15f),
-                                        shape = RoundedCornerShape(4.dp)
+                                        color = HSEGreenSafe.copy(alpha = 0.25f),
+                                        shape = RoundedCornerShape(6.dp),
+                                        border = BorderStroke(1.dp, HSEGreenSafe)
                                     ) {
                                         Text(
-                                            text = "${media.type} • ${media.category}",
-                                            color = badgeColor,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            text = "${filteredButtons.size} modules",
+                                            color = Color(0xFF4ADE80),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = media.title,
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "${media.viewsCount} consultations • ${media.dateText}",
-                                    color = HSETextMuted,
-                                    fontSize = 11.sp
-                                )
                             }
-                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = HSETextSecondary, modifier = Modifier.size(16.dp))
+
+                            // Sélecteur de vue Responsive (Grille / Liste)
+                            Row(
+                                modifier = Modifier
+                                    .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color(0xFF475569), RoundedCornerShape(8.dp))
+                                    .padding(2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    onClick = { isGridLayout = true },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isGridLayout) HSEBluePrimary else Color.Transparent
+                                ) {
+                                    Text(
+                                        text = "Grille",
+                                        color = if (isGridLayout) Color.White else Color(0xFFE2E8F0),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                    )
+                                }
+                                Surface(
+                                    onClick = { isGridLayout = false },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (!isGridLayout) HSEBluePrimary else Color.Transparent
+                                ) {
+                                    Text(
+                                        text = "Liste",
+                                        color = if (!isGridLayout) Color.White else Color(0xFFE2E8F0),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Sélectionnez un module pour consulter ses consignes et procédures :",
+                            color = Color.White,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 19.sp
+                        )
                     }
                 }
             }
 
-            if (filteredDocuments.isEmpty() && filteredMedia.isEmpty()) {
-                item {
-                    Box(
+            // Boutons responsifs : Grille multi-colonnes ou Liste compacte
+            if (columnsCount > 1) {
+                val chunked = filteredButtons.chunked(columnsCount)
+                items(chunked) { rowButtons ->
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 40.dp, horizontal = 20.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.SearchOff,
-                                contentDescription = null,
-                                tint = HSETextMuted,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Aucun document trouvé",
-                                color = HSETextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "Essayez un autre mot-clé ou réinitialisez les filtres",
-                                color = HSETextMuted,
-                                fontSize = 12.sp
-                            )
+                        rowButtons.forEach { btn ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                PolicyGridCard(
+                                    title = btn.title,
+                                    subtitle = btn.subtitle,
+                                    badge = btn.badge,
+                                    icon = btn.icon,
+                                    accentColor = btn.accentColor,
+                                    testTag = btn.testTag,
+                                    onClick = btn.onClick,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                        val emptySlots = columnsCount - rowButtons.size
+                        repeat(emptySlots) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
+                }
+            } else {
+                items(filteredButtons, key = { it.title }) { btn ->
+                    PolicyListCard(
+                        title = btn.title,
+                        subtitle = btn.subtitle,
+                        badge = btn.badge,
+                        icon = btn.icon,
+                        accentColor = btn.accentColor,
+                        testTag = btn.testTag,
+                        onClick = btn.onClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 3.dp)
+                    )
                 }
             }
         }
@@ -527,178 +611,432 @@ fun PoliciesScreen(
             )
         }
 
-        // Import & Publish Confirmation Dialog
-        if (isImportDialogOpen && pendingImportResult != null) {
-            val res = pendingImportResult!!
-            val categoriesList = listOf("Sécurité", "Politique de Sécurité", "Santé", "Environnement", "Induction", "Documents Importés")
+        // Dialog Plan d'urgence
+        if (showPlanUrgenceDialog) {
+            PlanUrgenceDialog(
+                onDismiss = { showPlanUrgenceDialog = false }
+            )
+        }
 
-            Dialog(
-                onDismissRequest = { isImportDialogOpen = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
+        // Dialog Environnement
+        if (showEnvironnementDialog) {
+            EnvironnementDialog(
+                onDismiss = { showEnvironnementDialog = false },
+                onOpenDocument = { docId ->
+                    showEnvironnementDialog = false
+                    viewingDocument = HseStaticData.documents.find { it.id == docId }
+                }
+            )
+        }
+
+        // Dialog Induction
+        if (showInductionDialog) {
+            InductionDialog(
+                onDismiss = { showInductionDialog = false },
+                onOpenDocument = { docId ->
+                    showInductionDialog = false
+                    viewingDocument = HseStaticData.documents.find { it.id == docId }
+                }
+            )
+        }
+
+        // Dialog Santé
+        if (showSanteDialog) {
+            SanteDialog(
+                onDismiss = { showSanteDialog = false },
+                onOpenDocument = { docId ->
+                    showSanteDialog = false
+                    viewingDocument = HseStaticData.documents.find { it.id == docId }
+                }
+            )
+        }
+
+        // Dialog Sécurité
+        if (showSecuriteDialog) {
+            SecuriteDialog(
+                onDismiss = { showSecuriteDialog = false },
+                onOpenDocument = { docId ->
+                    showSecuriteDialog = false
+                    viewingDocument = HseStaticData.documents.find { it.id == docId }
+                }
+            )
+        }
+
+        // Dialog Programme
+        if (showProgrammeDialog) {
+            ProgrammeDialog(
+                onDismiss = { showProgrammeDialog = false },
+                onNavigateToProgramme = {
+                    showProgrammeDialog = false
+                    viewModel.setTab(MainTab.PROGRAMME)
+                }
+            )
+        }
+
+        // Dialog Politique
+        if (showPolitiqueDialog) {
+            PolitiqueDialog(
+                onDismiss = { showPolitiqueDialog = false }
+            )
+        }
+
+        // Dialog Succès Stories
+        if (showSuccesStoriesDialog) {
+            SuccesStoriesDialog(
+                onDismiss = { showSuccesStoriesDialog = false }
+            )
+        }
+
+        // Dialog Serveur Documentaire Cloud
+        if (isServerDocsDialogOpen) {
+            ServerDocumentsDialog(
+                viewModel = viewModel,
+                isB2Syncing = isB2Syncing,
+                b2Files = b2Files,
+                onDismiss = { isServerDocsDialogOpen = false },
+                onOpenDocument = { b2File ->
+                    try {
+                        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(
+                                Uri.parse(b2File.downloadUrl),
+                                if (b2File.fileName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "*/*"
+                            )
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(viewIntent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Ouverture impossible: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun ServerDocumentsDialog(
+    viewModel: HseViewModel,
+    isB2Syncing: Boolean,
+    b2Files: List<com.example.util.B2FileItem>,
+    onDismiss: () -> Unit,
+    onOpenDocument: (com.example.util.B2FileItem) -> Unit
+) {
+    val context = LocalContext.current
+    val b2Status by viewModel.b2ConnectionStatus.collectAsState()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
             ) {
-                Surface(
-                    color = Color(0xFF1E293B),
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, Color(0xFF334155)),
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .padding(vertical = 24.dp)
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF0284C7).copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDone,
+                                contentDescription = null,
+                                tint = Color(0xFF38BDF8),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
                             Text(
-                                text = "Enregistrer le document",
+                                text = "Serveur Documentaire HSE Cloud",
                                 color = Color.White,
-                                fontSize = 17.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            IconButton(onClick = { isImportDialogOpen = false }, modifier = Modifier.size(28.dp)) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Fermer", tint = Color(0xFF94A3B8))
-                            }
-                        }
-
-                        // File Preview Banner
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = when (res.contentType) {
-                                        "PDF" -> Icons.Default.Description
-                                        "PHOTO" -> Icons.Default.Image
-                                        "VIDEO" -> Icons.Default.Videocam
-                                        else -> Icons.Default.Article
-                                    },
-                                    contentDescription = null,
-                                    tint = Color(0xFF38BDF8),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = res.fileName, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(text = "Taille : ${res.fileSizeFormatted} • Type : ${res.contentType}", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                                }
-                            }
-                        }
-
-                        // Title field
-                        Text("Titre du document", color = Color(0xFFCBD5E1), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        OutlinedTextField(
-                            value = pendingImportTitle,
-                            onValueChange = { pendingImportTitle = it },
-                            placeholder = { Text("Ex: Procédure de travail...", color = Color(0xFF64748B)) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF0F172A),
-                                unfocusedContainerColor = Color(0xFF0F172A),
-                                focusedBorderColor = Color(0xFF38BDF8),
-                                unfocusedBorderColor = Color(0xFF334155),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Category Selector
-                        Text("Catégorie HSE", color = Color(0xFFCBD5E1), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            categoriesList.forEach { cat ->
-                                val isCatSelected = pendingImportCategory == cat
-                                FilterChip(
-                                    selected = isCatSelected,
-                                    onClick = { pendingImportCategory = cat },
-                                    label = { Text(cat, fontSize = 11.sp) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFF0284C7),
-                                        selectedLabelColor = Color.White,
-                                        containerColor = Color(0xFF0F172A),
-                                        labelColor = Color(0xFF94A3B8)
-                                    )
-                                )
-                            }
-                        }
-
-                        // Description field
-                        Text("Description / Note", color = Color(0xFFCBD5E1), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        OutlinedTextField(
-                            value = pendingImportDescription,
-                            onValueChange = { pendingImportDescription = it },
-                            placeholder = { Text("Brève description du contenu...", color = Color(0xFF64748B)) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFF0F172A),
-                                unfocusedContainerColor = Color(0xFF0F172A),
-                                focusedBorderColor = Color(0xFF38BDF8),
-                                unfocusedBorderColor = Color(0xFF334155),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            maxLines = 3,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Submit Button
-                        Button(
-                            onClick = {
-                                if (pendingImportTitle.isNotBlank()) {
-                                    val newContent = ContentEntity(
-                                        id = "doc_import_${System.currentTimeMillis()}",
-                                        title = pendingImportTitle,
-                                        description = pendingImportDescription,
-                                        type = res.contentType,
-                                        category = pendingImportCategory,
-                                        fileUrl = res.localFilePath.ifBlank { res.fileUriString },
-                                        viewsCount = 1,
-                                        dateText = "Aujourd'hui",
-                                        referenceCode = "DOC-${System.currentTimeMillis() % 10000}",
-                                        authorName = activeUser.name.ifBlank { "Administrateur HSE" },
-                                        authorRole = activeUser.role.ifBlank { "Admin" },
-                                        site = activeUser.site.ifBlank { "Tous les sites" }
-                                    )
-                                    viewModel.saveContent(newContent) { success ->
-                                        if (success) {
-                                            viewModel.openContentReader(newContent)
-                                        }
-                                    }
-                                    isImportDialogOpen = false
-                                    Toast.makeText(context, "Document enregistré dans la base de données !", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF047857)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.CloudUpload, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Enregistrer dans la base de données", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                text = "Accessible à tous les collaborateurs",
+                                color = Color(0xFFCBD5E1),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Fermer",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Masked Server Security Information
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF334155)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color(0xFF10B981), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "OPÉRATIONNEL",
+                                    color = Color(0xFF10B981),
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Surface(
+                                color = Color(0xFF38BDF8).copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "AES-256",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "• Stockage Cloud : Centralisé & Hautement Sécurisé\n" +
+                                   "• Liaison sécurisée : ${com.example.util.B2CloudStorageService.MASKED_KEY_ID}\n" +
+                                   "• Accès : Ouvert à tous les utilisateurs (Lecture & Streaming)\n" +
+                                   "• $b2Status",
+                            color = Color(0xFFF1F5F9),
+                            fontSize = 12.5.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Synchronization Action Button
+                Button(
+                    onClick = {
+                        viewModel.syncB2Files { res ->
+                            Toast.makeText(context, res.message, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = !isB2Syncing,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .testTag("dialog_sync_b2_btn")
+                ) {
+                    if (isB2Syncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Synchronisation des documents...", fontSize = 12.sp, color = Color.White)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Actualiser la liste des documents", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Documents List Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Documents sur le serveur",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${b2Files.size} document(s)",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Documents LazyColumn
+                if (b2Files.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.CloudQueue,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Aucun document synchronisé pour l'instant",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 12.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Cliquez sur « Actualiser » pour récupérer les fichiers du serveur",
+                                color = Color(0xFF64748B),
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(b2Files, key = { it.fileId }) { file ->
+                            val isPdf = file.fileName.endsWith(".pdf", ignoreCase = true)
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFF334155)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(
+                                                    if (isPdf) Color(0xFFEF4444).copy(alpha = 0.2f) else Color(0xFF3B82F6).copy(alpha = 0.2f),
+                                                    RoundedCornerShape(8.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.Description,
+                                                contentDescription = null,
+                                                tint = if (isPdf) Color(0xFFEF4444) else Color(0xFF38BDF8),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = file.fileName,
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "${MediaStorageHelper.formatFileSize(file.contentLength)} • Document officiel",
+                                                color = Color(0xFFCBD5E1),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = { onOpenDocument(file) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Visibility,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Consulter", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Close Button
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFF475569)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                ) {
+                    Text("Fermer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -711,13 +1049,27 @@ fun CategoryCardItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val domainColor = when {
+        category.title.contains("Santé", ignoreCase = true) -> HSEHealthBlue         // #1565C0
+        category.title.contains("Sécurité", ignoreCase = true) -> HSEOrangeAlert     // #F57C00
+        category.title.contains("Environnement", ignoreCase = true) -> HSEEnvGreen   // #2E7D32
+        category.title.contains("Induction", ignoreCase = true) -> HSEObligationBlue // #0D47A1
+        else -> HSEBluePrimary // #1B7F4B
+    }
+    val domainCardBg = when {
+        category.title.contains("Santé", ignoreCase = true) -> HSEHealthBg           // #E3F2FD
+        category.title.contains("Environnement", ignoreCase = true) -> HSEEnvBg      // #E8F5E9
+        else -> HSECardBg                                                            // #FFFFFF
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .testTag("cat_card_${category.id}"),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = HSECardBg)
+        colors = CardDefaults.cardColors(containerColor = domainCardBg),
+        border = BorderStroke(1.dp, HSECardBorder)
     ) {
         Row(
             modifier = Modifier
@@ -733,7 +1085,7 @@ fun CategoryCardItem(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(Color(category.colorHex), RoundedCornerShape(10.dp)),
+                        .background(domainColor, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     val icon = when (category.iconName) {
@@ -756,7 +1108,7 @@ fun CategoryCardItem(
                 Column {
                     Text(
                         text = category.title,
-                        color = Color.White,
+                        color = HSETextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -768,7 +1120,8 @@ fun CategoryCardItem(
                     )
                     Text(
                         text = "${category.documentCount} document${if (category.documentCount > 1) "s" else ""}",
-                        color = HSETextMuted,
+                        color = domainColor,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 10.sp
                     )
                 }
@@ -777,7 +1130,7 @@ fun CategoryCardItem(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = HSETextSecondary,
+                tint = domainColor,
                 modifier = Modifier.size(15.dp)
             )
         }
@@ -790,18 +1143,26 @@ fun DocumentCardItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val docColor = when {
+        document.category.contains("Santé", ignoreCase = true) -> Color(0xFFE11D48)
+        document.category.contains("Environnement", ignoreCase = true) -> Color(0xFF10B981)
+        document.category.contains("Sécurité", ignoreCase = true) -> HSEBluePrimary
+        else -> Color(0xFF2563EB)
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .testTag("doc_card_${document.id}"),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = HSECardBg)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        border = BorderStroke(1.2.dp, docColor.copy(alpha = 0.4f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -811,15 +1172,16 @@ fun DocumentCardItem(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(HSERedUrgent.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                        .size(42.dp)
+                        .background(docColor.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                        .border(1.dp, docColor.copy(alpha = 0.45f), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Description,
                         contentDescription = null,
-                        tint = HSERedUrgent,
-                        modifier = Modifier.size(20.dp)
+                        tint = docColor,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
@@ -829,35 +1191,60 @@ fun DocumentCardItem(
                     Text(
                         text = document.title,
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = document.subtitle,
-                        color = HSETextSecondary,
-                        fontSize = 11.sp,
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = document.format,
-                        color = HSERedUrgent,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            color = docColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = document.referenceCode,
+                                color = docColor,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            )
+                        }
+                        Text(
+                            text = "• ${document.format} • ${document.pagesCount} pages",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.5.sp
+                        )
+                    }
                 }
             }
 
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = HSETextSecondary,
-                modifier = Modifier.size(15.dp)
-            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Surface(
+                color = docColor.copy(alpha = 0.15f),
+                shape = CircleShape,
+                border = BorderStroke(1.dp, docColor.copy(alpha = 0.35f))
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Consulter",
+                    tint = docColor,
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .size(15.dp)
+                )
+            }
         }
     }
 }
@@ -2551,6 +2938,1387 @@ fun HighlightableText(
             fontSize = fontSizeSp.sp,
             lineHeight = lineHeightSp.sp
         )
+    }
+}
+
+// ==========================================
+// THEMATIC POLICY BUTTONS & DEDICATED DIALOGS
+// ==========================================
+
+private data class PolicyButtonItem(
+    val title: String,
+    val subtitle: String,
+    val badge: String,
+    val icon: ImageVector,
+    val accentColor: Color,
+    val testTag: String,
+    val filterCategory: String,
+    val searchKeywords: String,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun PolicyGridCard(
+    title: String,
+    subtitle: String,
+    badge: String,
+    icon: ImageVector,
+    accentColor: Color,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.testTag(testTag),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF1E293B),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.40f)),
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 9.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(accentColor.copy(alpha = 0.18f), RoundedCornerShape(7.dp))
+                        .border(1.dp, accentColor.copy(alpha = 0.45f), RoundedCornerShape(7.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Surface(
+                    color = accentColor.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.45f))
+                ) {
+                    Text(
+                        text = badge,
+                        color = accentColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 14.5.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                color = Color(0xFFF1F5F9),
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                minLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun PolicyListCard(
+    title: String,
+    subtitle: String,
+    badge: String,
+    icon: ImageVector,
+    accentColor: Color,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.testTag(testTag),
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF1E293B),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.40f)),
+        shadowElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(accentColor.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                    .border(1.dp, accentColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Surface(
+                        color = accentColor.copy(alpha = 0.18f),
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.40f))
+                    ) {
+                        Text(
+                            text = badge,
+                            color = accentColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = subtitle,
+                    color = Color(0xFFF1F5F9),
+                    fontSize = 12.5.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .background(accentColor.copy(alpha = 0.15f), CircleShape)
+                    .border(0.8.dp, accentColor.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Ouvrir",
+                    tint = accentColor,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PolicyNavigationCard(
+    title: String,
+    subtitle: String,
+    badge: String,
+    icon: ImageVector,
+    accentColor: Color,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PolicyListCard(
+        title = title,
+        subtitle = subtitle,
+        badge = badge,
+        icon = icon,
+        accentColor = accentColor,
+        testTag = testTag,
+        onClick = onClick,
+        modifier = modifier
+    )
+}
+
+private fun openWebLink(context: Context, url: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "Impossible d'ouvrir le lien Drive", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// ------------------------------------------
+// 1. DIALOG PLAN D'URGENCE
+// ------------------------------------------
+@Composable
+fun PlanUrgenceDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val emergencyFiches = HseStaticData.emergencyFiches
+    var expandedFicheId by remember { mutableStateOf<String?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.90f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFFEF4444).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Plan d'Urgence & Secours",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Procédures immédiates & contacts 24/7",
+                                color = Color(0xFFFCA5A5),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Scrollable Content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Bouton Accès aux Documents (Google Drive)
+                    Button(
+                        onClick = {
+                            openWebLink(context, "https://drive.google.com/drive/folders/1wMjQkrZrpnQ3sIq4SUdk0FO-74SfPGVI?usp=drive_link")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(Icons.Default.CloudQueue, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Accès aux documents",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    // Emergency Reflex Fiches
+                    Text(
+                        text = "Fiches Réflexes d'Urgence :",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    emergencyFiches.forEach { fiche ->
+                        val isExpanded = expandedFicheId == fiche.id
+                        Card(
+                            onClick = { expandedFicheId = if (isExpanded) null else fiche.id },
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, if (isExpanded) Color(fiche.accentColorHex) else Color(0xFF334155))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .background(Color(fiche.accentColorHex).copy(alpha = 0.2f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = when (fiche.iconType) {
+                                                    "fire" -> Icons.Default.LocalFireDepartment
+                                                    "ambulance" -> Icons.Default.MedicalServices
+                                                    "flask" -> Icons.Default.Science
+                                                    "bolt" -> Icons.Default.Bolt
+                                                    "exit" -> Icons.Default.MeetingRoom
+                                                    else -> Icons.Default.HealthAndSafety
+                                                },
+                                                contentDescription = null,
+                                                tint = Color(fiche.accentColorHex),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = fiche.title,
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = fiche.subtitle,
+                                                color = Color(0xFFCBD5E1),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = null,
+                                        tint = Color.White
+                                    )
+                                }
+
+                                if (isExpanded) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(color = Color(0xFF334155))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = when (fiche.id) {
+                                            "accident_corporel" -> "1. Protéger : Baliser la zone et couper les énergies si nécessaire.\n2. Alerter : Contacter immédiatement l'infirmerie ou le poste de secours.\n3. Secourir : Pratiquer les gestes de premiers secours sans déplacer la victime sauf péril imminent.\n4. Accompagner : Rester auprès du blessé jusqu'à l'arrivée des secours."
+                                            "incendie_evacuation" -> "1. Alerte : Déclencher le bris de glace le plus proche.\n2. Attaque : Tenter d'éteindre le feu naissant avec l'extincteur approprié si possible.\n3. Évacuation : Quitter les lieux calmement en fermant portes et fenêtres.\n4. Rassemblement : Rejoindre le point d'appel et répondre à l'appel nominal."
+                                            "risques_chimiques" -> "1. Éloigner : Se placer vent debout par rapport au nuage ou déversement.\n2. Douche : En cas de contact, se rincer sous la douche de sécurité au moins 15 min.\n3. Rétention : Utiliser les kits absorbants disponibles en station.\n4. FDS : Consulter la Fiche de Données de Sécurité du produit."
+                                            "risques_electriques" -> "1. Coupure : Actionner immédiatement l'arrêt d'urgence coup de poing.\n2. Ne jamais toucher la victime en contact avec la source de courant.\n3. Isoler avec un objet non conducteur (perche isolante certifiée).\n4. Alerter les électriciens et le service médical."
+                                            "evacuation_generale" -> "1. Dès retentissement de la sirène modulée continue : stopper toute tâche.\n2. Sécuriser les installations si procédure prévue.\n3. Emprunter les allées de secours balisées sans courir.\n4. Point de rassemblement : ne quitter le lieu sous aucun prétexte sans autorisation."
+                                            else -> "1. Vérifier l'état de conscience et la respiration de la victime.\n2. En cas d'inconscience mais respiration présente : Position Latérale de Sécurité (PLS).\n3. En cas d'arrêt cardiorespiratoire : 30 compressions thoraciques, 2 insufflations et DAE.\n4. Hémorragie : compression manuelle directe avec gant."
+                                        },
+                                        color = Color(0xFFF1F5F9),
+                                        fontSize = 13.5.sp,
+                                        lineHeight = 20.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Close Button
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(44.dp)
+                ) {
+                    Text("Fermer le Plan d'urgence", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 2. DIALOG ENVIRONNEMENT
+// ------------------------------------------
+@Composable
+fun EnvironnementDialog(
+    onDismiss: () -> Unit,
+    onOpenDocument: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF10B981).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFF10B981).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Eco, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Politique Environnementale", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Groupe Holcim • CIMENCAM 2026", color = Color(0xFF6EE7B7), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFF064E3B).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, Color(0xFF059669))
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Engagement ISO 14001 • Transition Écologique & Économie Circulaire",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // 4 Axes
+                    val axes = listOf(
+                        Triple("1. Décarbonation & Climat", "Remplacement des énergies fossiles par la biomasse locale (coques de cacao, balles de riz) et réduction de l'empreinte carbone.", Icons.Default.Co2),
+                        Triple("2. Préservation de l'Eau", "Recyclage à 100% en circuit fermé de toutes les eaux industrielles et contrôle rigoureux des nappes.", Icons.Default.WaterDrop),
+                        Triple("3. Économie Circulaire & Déchets", "Tri sélectif rigoureux, traitement certifié des déchets industriels et zéro mise en décharge sauvage.", Icons.Default.Autorenew),
+                        Triple("4. Biodiversité & Carrières", "Plan de réhabilitation continue des fronts de carrières avec reboisement d'essences végétales locales.", Icons.Default.Park)
+                    )
+
+                    axes.forEach { (titre, desc, icon) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.40f))
+                        ) {
+                            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .background(Color(0xFF10B981).copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(titre, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(desc, color = Color(0xFFE2E8F0), fontSize = 13.5.sp, lineHeight = 18.5.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Accès aux Documents (Google Drive)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1sxsnmiGZeYLJBUHFR_zBVutlaWCV6yFm?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.CloudQueue, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Accès aux documents", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 3. DIALOG INDUCTION
+// ------------------------------------------
+@Composable
+fun InductionDialog(
+    onDismiss: () -> Unit,
+    onOpenDocument: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFF2563EB).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF2563EB).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFF2563EB).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.School, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Induction Sécurité", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Nouveaux Arrivants & Prestataires", color = Color(0xFF93C5FD), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFF1E3A8A).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, Color(0xFF2563EB))
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Badge, contentDescription = null, tint = Color(0xFF60A5FA), modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Passage Obligatoire avant tout accès aux zones de production et carrières",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    val etapes = listOf(
+                        Pair("1. Procédure d'Accès Guérite", "Présentation obligatoire, vérification d'identité, badge visiteur et enregistrement dans le registre de sécurité."),
+                        Pair("2. Port Obligatoire des EPI", "Casque avec jugulaire, lunettes de sécurité, chaussures S3 à semelle anti-perforation, gilet haute visibilité."),
+                        Pair("3. Règles de Circulation", "Priorité piétonne sur trottoirs balisés jaune/vert, vitesse maximale 20 km/h, contact visuel obligatoire avec conducteurs d'engins."),
+                        Pair("4. Procédure d'Alerte & Évacuation", "Reconnaissance de la sirène modulée, évacuation dans le calme vers le Point de Rassemblement désigné.")
+                    )
+
+                    etapes.forEach { (titre, desc) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF2563EB).copy(alpha = 0.40f))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(titre, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(desc, color = Color(0xFFE2E8F0), fontSize = 13.5.sp, lineHeight = 18.5.sp)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Consulter le Livret d'Accueil complet (Google Drive)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1o4YteiLSmnuYhiTB_JiAGrWVT5JfLMnS?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Consulter le Livret d'Accueil complet", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 4. DIALOG SANTÉ
+// ------------------------------------------
+@Composable
+fun SanteDialog(
+    onDismiss: () -> Unit,
+    onOpenDocument: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFFE11D48).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFFE11D48).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFFE11D48).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFFB7185), modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Santé au Travail", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Prévention Sanitaire & Bien-être", color = Color(0xFFFDA4AF), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFF881337).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, Color(0xFFE11D48))
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.HealthAndSafety, contentDescription = null, tint = Color(0xFFFB7185), modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Protocoles Médicaux Obligatoires & Suivi de Santé des Collaborateurs",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    val santePoints = listOf(
+                        Pair("1. Protection Respiratoire & Poussières", "Port des masques FFP2/FFP3 obligatoire dans les zones de broyage, d'ensachage et de transfert de clinker et ciment."),
+                        Pair("2. Prévention du Stress Thermique", "Hydratation minimale de 2,5 à 3L d'eau potable/jour lors des fortes chaleurs à Figuil/Nomayos et pauses de repos à l'ombre."),
+                        Pair("3. Ergonomie & Manutention", "Charge maximale autorisée par opérateur : 25 kg. Adopter la flexion des genoux et le dos droit pour toute levée manuelle."),
+                        Pair("4. Suivi Médical Périodique", "Visites annuelles obligatoires à l'infirmerie du site : audiométrie (bruit > 85dB), spirométrie et bilan biologique.")
+                    )
+
+                    santePoints.forEach { (titre, desc) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFE11D48).copy(alpha = 0.40f))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(titre, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(desc, color = Color(0xFFE2E8F0), fontSize = 13.5.sp, lineHeight = 18.5.sp)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Consulter le Guide Sanitaire complet (Google Drive)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1dQw0Ep93Xs-9qxoi53zj52oCltSEx24K?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.MedicalServices, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Consulter le Guide Sanitaire complet", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 5. DIALOG SÉCURITÉ
+// ------------------------------------------
+@Composable
+fun SecuriteDialog(
+    onDismiss: () -> Unit,
+    onOpenDocument: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, HSEBluePrimary.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.88f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(HSEBluePrimary.copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, HSEBluePrimary.copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = HSEGreenSafe, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Sécurité Industrielle", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Les 12 Règles d'Or & Standards Vitaux", color = Color(0xFF86EFAC), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Fundamental Right
+                    Surface(
+                        color = Color(0xFF0F5132).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, HSEGreenSafe)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("⚠️ RÈGLE FONDAMENTALE : DROIT DE RETRAIT", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tout collaborateur a le droit et le DEVOIR d'interrompre immédiatement tout travail comportant un risque non maîtrisé, sans aucune sanction ni pénalité.",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+
+                    // 12 Rules Overview
+                    val regles = listOf(
+                        "1. EPI" to "Port obligatoire dès la zone industrielle (Casque, S3, lunettes, gilet).",
+                        "2. Consignation LOTO" to "Cadenassage et vérification d'absence totale d'énergie.",
+                        "3. Travail en Hauteur" to "Harnais double longe raccordé dès 1,80 m.",
+                        "4. Espaces Confinés" to "Permis obligatoire, ventilation et surveillant extérieur.",
+                        "5. Conduite & Engins" to "Vitesse limitée à 20 km/h, ceinture, téléphone interdit.",
+                        "6. Levage Mécanique" to "Rayon balisé, interdiction de stationner sous une charge.",
+                        "7. Travaux à Chaud" to "Permis de feu obligatoire, surveillance 2h post-travaux.",
+                        "8. Risques Chimiques" to "Consultation des FDS et bacs de rétention.",
+                        "9. Voies d'Évacuation" to "Interdiction d'encombrer sorties, extincteurs et RIA.",
+                        "10. Tolérance Zéro Alcool" to "Interdiction formelle de toute substance.",
+                        "11. Droit d'Alerte" to "Interrompre immédiatement tout travail à risque grave.",
+                        "12. Signalement sous 2h" to "Déclaration systématique de tout presqu'accident."
+                    )
+
+                    regles.forEach { (num, desc) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, HSEBluePrimary.copy(alpha = 0.40f))
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .background(HSEBluePrimary.copy(alpha = 0.25f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = HSEGreenSafe, modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(num, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(desc, color = Color(0xFFE2E8F0), fontSize = 12.5.sp, lineHeight = 17.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Consulter le Guide de Sécurité (Google Drive)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1c0Bxx2BhaxG4B3PnE2Eyf8-1WFb7KEAx?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = HSEBluePrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Consulter le Guide de Sécurité", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 6. DIALOG PROGRAMME
+// ------------------------------------------
+@Composable
+fun ProgrammeDialog(
+    onDismiss: () -> Unit,
+    onNavigateToProgramme: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.82f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF6366F1).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFF6366F1).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = Color(0xFFA5B4FC), modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Programme HSE 2026", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Campagnes, Formations & Événements", color = Color(0xFFC7D2FE), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFF312E81).copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, Color(0xFF6366F1))
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Assignment, contentDescription = null, tint = Color(0xFFA5B4FC), modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Plan d'Action HSE 2026 • Renforcement de la Culture de Vigilance Partagée",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    val programmes = listOf(
+                        Triple("Campagnes de Sécurité Annuelles", "Safety Days, Mois de l'Environnement, Semaine de la Santé & Célébration des records sans accident.", Icons.Default.Campaign),
+                        Triple("Formations Obligatoires 2026", "Consignation LOTO, Permis Travail en Hauteur, CACES Chariots et Recyclage SST Premiers Secours.", Icons.Default.School),
+                        Triple("Rituels Opérationnels Quotidiens", "Quarts d'heure HSE journaliers, causeries de poste et visites managériales VFL hebdomadaires.", Icons.Default.Schedule)
+                    )
+
+                    programmes.forEach { (titre, desc, icon) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.40f))
+                        ) {
+                            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .background(Color(0xFF6366F1).copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = Color(0xFFA5B4FC), modifier = Modifier.size(22.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(titre, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(desc, color = Color(0xFFE2E8F0), fontSize = 13.5.sp, lineHeight = 18.5.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Accéder au calendrier complet du Programme (Google Drive)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1B-UQwjv3TlDJLcFeEOySQY4uagVGMpVP?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.EventNote, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Accéder au calendrier complet du Programme", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 7. DIALOG POLITIQUE HSE
+// ------------------------------------------
+@Composable
+fun PolitiqueDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF0284C7).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFF0284C7).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AutoStories, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Politique Santé, Sécurité & Environnement", color = Color.White, fontSize = 17.5.sp, fontWeight = FontWeight.Bold)
+                            Text("Engagements de la Direction & Vision Zéro Incident", color = Color(0xFFBAE6FD), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Vision Surface
+                    Surface(
+                        color = Color(0xFF0369A1).copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, Color(0xFF0284C7))
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Gavel, contentDescription = null, tint = Color(0xFF7DD3FC), modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Engagement Fondamental : Aucun travail ne justifie qu'un collaborateur soit blessé ou exposé à un danger.",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 18.5.sp
+                            )
+                        }
+                    }
+
+                    val engagements = listOf(
+                        Triple(
+                            "1. Priorité Absolue à l'Humain",
+                            "La santé et la sécurité de nos collaborateurs, partenaires et sous-traitants priment sur toute considération de production ou de rentabilité financière.",
+                            Icons.Default.Favorite
+                        ),
+                        Triple(
+                            "2. Objectif Zéro Incident & Zéro Préjudice",
+                            "Viser continuellement l'élimination de tout accident avec ou sans arrêt, de toute maladie professionnelle et de tout impact négatif sur les écosystèmes.",
+                            Icons.Default.CheckCircle
+                        ),
+                        Triple(
+                            "3. Exemplarité Managériale & Rituels VFL",
+                            "Chaque manager incarne la culture de sécurité par sa présence terrain, le dialogue constructif (VFL) et le traitement prioritaire des signalements.",
+                            Icons.Default.Groups
+                        ),
+                        Triple(
+                            "4. Droit & Devoir de Retrait Inconditionnel",
+                            "Tout intervenant est habilité à stopper sur-le-champ toute tâche non maîtrisée sans risquer la moindre sanction hiérarchique.",
+                            Icons.Default.PanTool
+                        ),
+                        Triple(
+                            "5. Conformité Réglementaire & Normes ISO",
+                            "Respect strict des lois nationales, des standards internationaux ISO 45001 (Santé/Sécurité) et ISO 14001 (Environnement).",
+                            Icons.Default.Verified
+                        )
+                    )
+
+                    engagements.forEach { (titre, desc, icon) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.40f))
+                        ) {
+                            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .background(Color(0xFF0284C7).copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(titre, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(desc, color = Color(0xFFE2E8F0), fontSize = 13.sp, lineHeight = 18.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Consulter le Guide Politique (Lien Drive officiel)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1RCnaR0fJpPuEB6K2qg-9Yqs_SjArg8rr?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.AutoStories, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Consulter le Guide Politique", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------
+// 8. DIALOG SUCCÈS STORIES & REX
+// ------------------------------------------
+@Composable
+fun SuccesStoriesDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFFD97706).copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFFD97706).copy(alpha = 0.2f), CircleShape)
+                                .border(1.dp, Color(0xFFD97706).copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Succès Stories & REX HSE", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Bonnes Pratiques, Innovations & Retours d'Expérience", color = Color(0xFFFDE68A), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer", tint = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Banner Surface
+                    Surface(
+                        color = Color(0xFF78350F).copy(alpha = 0.45f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.2.dp, Color(0xFFD97706))
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Partage d'Excellence : Valorisons les victoires quotidiennes et les initiatives concrètes de nos équipes.",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 18.5.sp
+                            )
+                        }
+                    }
+
+                    val stories = listOf(
+                        Triple(
+                            "🏆 Cap Historique : 1 000 Jours Sans Accident",
+                            "Performance remarquable réalisée grâce à la vigilance partagée, aux causeries 5 minutes quotidiennes et au signalement immédiat des situations dangereuses.",
+                            Icons.Default.MilitaryTech
+                        ),
+                        Triple(
+                            "💡 Innovation Terrain : Consignation LOTO 2.0",
+                            "Création par les équipes de maintenance d'une station mobile de cadenassage simplifiant la vérification VAT et réduisant les risques d'omission.",
+                            Icons.Default.Lightbulb
+                        ),
+                        Triple(
+                            "🌱 Initiative Zéro Déchet & Recyclage Eaux",
+                            "Valorisation de 95% des sous-produits de filtration et réutilisation intégrale des eaux industrielles en circuit fermé.",
+                            Icons.Default.Recycling
+                        ),
+                        Triple(
+                            "🤝 Challenge 'Voisins Vigilants' en Carrière",
+                            "Implication réussie des chauffeurs routiers externes et transporteurs partenaires dans la remontée de presqu'accidents et l'amélioration continue.",
+                            Icons.Default.Handshake
+                        )
+                    )
+
+                    stories.forEach { (titre, desc, icon) ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFD97706).copy(alpha = 0.40f))
+                        ) {
+                            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .background(Color(0xFFD97706).copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(titre, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(desc, color = Color(0xFFE2E8F0), fontSize = 13.sp, lineHeight = 18.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action: Accéder aux Succès Stories (Lien Drive officiel)
+                Button(
+                    onClick = {
+                        openWebLink(context, "https://drive.google.com/drive/folders/1ds9Vv1yVM6LhxhkbWSjjlrgKm0VpWfCV?usp=drive_link")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Accéder aux Succès Stories", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+        }
     }
 }
 
